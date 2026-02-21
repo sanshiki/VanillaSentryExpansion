@@ -27,52 +27,69 @@ namespace SummonerExpansionMod.Content.Buffs.Summon
             Main.debuff[Type] = true;    // 是负面效果
         }
 
-        public override void Update(NPC npc, ref int buffIndex) {
-            // 这里不处理逻辑，只是标记有这个debuff
-            npc.GetGlobalNPC<MothronDustDebuffNPC>().hasDebuff = true;
-            int lvl = npc.GetGlobalNPC<MothronDustDebuffNPC>().lvl;
-        }
+        // public override void Update(NPC npc, ref int buffIndex) {
+        //     // 这里不处理逻辑，只是标记有这个debuff
+        //     npc.GetGlobalNPC<MothronDustDebuffNPC>().hasDebuff = true;
+        //     int lvl = npc.GetGlobalNPC<MothronDustDebuffNPC>().lvl;
+        // }
     }
 
-    public class MothronDustDebuffNPC : GlobalNPC
-    {
-        public override bool InstancePerEntity => true;
-        private const int MAX_DURATION = (int)(60 * 0.15f);
-        private const int MAX_LEVEL = 10;
-        public int lvl = 0;
-        public bool hasDebuff = false;
-        private int decayTimer = 0;
+    // public class MothronDustDebuffNPC : GlobalNPC
+    // {
+    //     public override bool InstancePerEntity => true;
+    //     private const int MAX_DURATION = (int)(60 * 0.15f);
+    //     private const int MAX_LEVEL = 10;
+    //     public int lvl = 0;
+    //     public bool hasDebuff = false;
+    //     private int decayTimer = 0;
         
-        public override void ResetEffects(NPC npc) {
-            hasDebuff = false;
-        }
+    //     public override void ResetEffects(NPC npc) {
+    //         hasDebuff = false;
+    //     }
 
-        public override void PostAI(NPC npc) {
-            if (hasDebuff) {
-                // 每帧检测：防止堆叠层数超过上限
-                if (lvl > MAX_LEVEL)
-                    lvl = MAX_LEVEL;
+    //     public override void PostAI(NPC npc) {
+    //         if (Main.netMode == NetmodeID.MultiplayerClient)
+    //             return;
 
-                // 每60帧（1秒）减少一层
-                decayTimer++;
-                if (decayTimer >= MAX_DURATION) {
-                    decayTimer = 0;
-                    if (lvl > 0)
-                        lvl--;
-                }
 
-                // // 可选：层数影响某种效果
-                // if (lvl > 0) {
-                //     npc.defense -= lvl; // 举例：降低防御
-                // }
+    //         if (hasDebuff) {
+    //             // 每帧检测：防止堆叠层数超过上限
+    //             if (lvl > MAX_LEVEL)
+    //                 lvl = MAX_LEVEL;
 
-                // Main.NewText("MothronDustDebuff lvl: " + lvl);
+    //             // 每60帧（1秒）减少一层
+    //             decayTimer++;
+    //             if (decayTimer >= MAX_DURATION) {
+    //                 decayTimer = 0;
+    //                 if (lvl > 0)
+    //                 {
+    //                     lvl--;
+    //                     npc.netUpdate = true;
+    //                 }
+                        
+    //             }
 
-            } else {
-                // 没有debuff时自动清空
-                lvl = 0;
-                decayTimer = 0;
-            }
-        }
-    }
+    //             // Main.NewText("MothronDustDebuff lvl: " + lvl);
+
+    //         } else {
+    //             // 没有debuff时自动清空
+    //             lvl = 0;
+    //             decayTimer = 0;
+    //         }
+    //     }
+
+    //     public override void SendExtraAI(NPC npc, BitWriter bitWriter, BinaryWriter binaryWriter)
+    //     {
+    //         binaryWriter.Write(lvl);
+    //         binaryWriter.Write(hasDebuff);
+    //         binaryWriter.Write(decayTimer);
+    //     }
+
+    //     public override void ReceiveExtraAI(NPC npc, BitReader bitReader, BinaryReader binaryReader)
+    //     {
+    //         lvl = binaryReader.ReadInt32();
+    //         hasDebuff = binaryReader.ReadBoolean();
+    //         decayTimer = binaryReader.ReadInt32();
+    //     }
+    // }
 }

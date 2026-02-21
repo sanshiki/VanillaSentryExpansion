@@ -35,29 +35,29 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         protected bool BladShotInited = false;
         protected Vector2 CursorPos;
 
-        public override void AI()
-        {
-            if(!BladShotInited)
-            {
-                CursorPos = Main.MouseWorld;
-                BladShotInited = true;
-            }
+        // public override void AI()
+        // {
+        //     if(!BladShotInited)
+        //     {
+        //         CursorPos = Main.MouseWorld;
+        //         BladShotInited = true;
+        //     }
 
-            base.AI();
-            if(State == WAVE_STATE && Projectile.timeLeft == TIME_LEFT_WAVE / 2)
-            {
-                Player player = Main.player[Projectile.owner];
-                Vector2 direction = Vector2.Normalize(CursorPos - player.Center);
-                Projectile bladeShot = Projectile.NewProjectileDirect(
-                    Projectile.GetSource_FromAI(),
-                    player.Center + direction * PoleLength * 0.8f,
-                    Vector2.Normalize(CursorPos - player.Center) * 5f,
-                    ModProjectileID.TikiFlagBladeShot,
-                    Projectile.damage,
-                    Projectile.knockBack,
-                    Projectile.owner
-                );
-            }
-        }
+        //     base.AI();
+        //     if(State == WAVE_STATE && Projectile.timeLeft == TIME_LEFT_WAVE / 2)
+        //     {
+        //         Player player = Main.player[Projectile.owner];
+        //         Vector2 direction = Vector2.Normalize(CursorPos - player.Center);
+        //         Projectile bladeShot = Projectile.NewProjectileDirect(
+        //             Projectile.GetSource_FromAI(),
+        //             player.Center + direction * PoleLength * 0.8f,
+        //             Vector2.Normalize(CursorPos - player.Center) * 5f,
+        //             ModProjectileID.TikiFlagBladeShot,
+        //             Projectile.damage,
+        //             Projectile.knockBack,
+        //             Projectile.owner
+        //         );
+        //     }
+        // }
     }
 }

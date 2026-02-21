@@ -40,8 +40,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.timeLeft = 600; // 存活时间
             Projectile.tileCollide = true;
             Projectile.DamageType = DamageClass.Summon;
-            // Projectile.alpha = 255;
-            // Projectile.extraUpdates = 5;
+            Projectile.netImportant = true;
         }
 
         public override void AI()
@@ -78,44 +77,50 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Vector2 center = Projectile.Center;
 
             // 伤害范围内的NPC
-            foreach (NPC npc in Main.npc)
+            if(MinionAIHelper.IsServer())
             {
-                if (npc.active && !npc.friendly && npc.Distance(center) < radius && npc != target && !npc.dontTakeDamage && !npc.immortal)
+                foreach (NPC npc in Main.npc)
                 {
-                    // 计算伤害
-                    int damage = (int)(Projectile.damage * 0.8f); // 爆炸伤害稍低
-                    // Main.NewText("damage:" + damage.ToString());
-                    NPC.HitInfo hitInfo = new NPC.HitInfo();
-                    hitInfo.Crit = false;
-                    hitInfo.DamageType = DamageClass.Summon;
-                    hitInfo.HitDirection = 0;
-                    hitInfo.Knockback = 0f;
-                    hitInfo.Damage = damage;
-                    npc.StrikeNPC(hitInfo, false, false);
+                    if (npc.active && !npc.friendly && npc.Distance(center) < radius && npc != target && !npc.dontTakeDamage && !npc.immortal)
+                    {
+                        // 计算伤害
+                        int damage = (int)(Projectile.damage * 0.8f); // 爆炸伤害稍低
+                        // Main.NewText("damage:" + damage.ToString());
+                        NPC.HitInfo hitInfo = new NPC.HitInfo();
+                        hitInfo.Crit = false;
+                        hitInfo.DamageType = DamageClass.Summon;
+                        hitInfo.HitDirection = 0;
+                        hitInfo.Knockback = 0f;
+                        hitInfo.Damage = damage;
+                        npc.StrikeNPC(hitInfo, false, false);
+                    }
                 }
             }
-
-            // 生成Dust特效
-            for (int i = 0; i < 5; i++)
-            {
-                Dust.NewDust(Projectile.position, Projectile.width, Projectile.height, 133, 0f, 0f);
-            }
-            for (int i = 0; i < 5; i++)
-            {
-                Dust.NewDust(Projectile.position, Projectile.width, Projectile.height, 283, 0f, 0f);
-            }
-
-            // 播放爆炸音效
-            SoundEngine.PlaySound(SoundID.Dig, Projectile.position);
 
             Projectile.Kill();
         }
 
         public override void Kill(int timeLeft)
         {
-            if(MinionAIHelper.RandomFloat(0f, 1f) < SANDNADO_SPAWN_CHANCE)
+            if(MinionAIHelper.RandomFloat(0f, 1f) < SANDNADO_SPAWN_CHANCE && Projectile.owner == Main.myPlayer)
             {
                 Projectile sandado = Projectile.NewProjectileDirect(Projectile.GetSource_FromAI(), Projectile.Center, Vector2.Zero, ModProjectileID.SandustSentrySandnadoFriendly, (int)(Projectile.damage * SANDNADO_DAMAGE_FACTOR), 2, Projectile.owner);
+            }
+
+            if(!MinionAIHelper.IsServer())
+            {
+                // 生成Dust特效
+                for (int i = 0; i < 5; i++)
+                {
+                    Dust.NewDust(Projectile.position, Projectile.width, Projectile.height, 133, 0f, 0f);
+                }
+                for (int i = 0; i < 5; i++)
+                {
+                    Dust.NewDust(Projectile.position, Projectile.width, Projectile.height, 283, 0f, 0f);
+                }
+
+                // 播放爆炸音效
+                SoundEngine.PlaySound(SoundID.Dig, Projectile.position);
             }
         }
 

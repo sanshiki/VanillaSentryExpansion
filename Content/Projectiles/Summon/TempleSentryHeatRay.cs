@@ -24,12 +24,22 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         private const int SIGNAL_HEIGHT = 1500;
         private const int SIGNAL_SLICE_HEIGHT = 4;
         private const int SIGNAL_BASE_HEIGHT = 6;
+
+        public override void SetStaticDefaults()
+        {
+            ProjectileID.Sets.SentryShot[Projectile.type] = true;
+        }
+
         public override void SetDefaults()
         {
             Projectile.CloneDefaults(ProjectileID.HeatRay);
             Projectile.aiStyle = -1;
             Projectile.extraUpdates = 50;
             Projectile.alpha = 150;
+            Projectile.DamageType = DamageClass.Summon;
+            Projectile.penetrate = 3;
+            Projectile.usesLocalNPCImmunity = true;
+            Projectile.localNPCHitCooldown = 20;
         }
 
         public override void AI()

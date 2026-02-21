@@ -16,26 +16,24 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 {
     public class CursedMagicTower : ModProjectile
     {
+        /* ------------------- constants ------------------- */
         // animation
         private const int FRAME_COUNT = 3;
         private int FRAME_SPEED = 10;
         // private int fireCooldown = 30;
         private const int FIRE_INTERVAL = 90;
-        private int fireTimer = 0;
-        private long floatCnt = 0;
-
+        
+        // bullet constants
         private const float REAL_BULLET_SPEED = 9.5f;
         private const float PRED_BULLET_SPEED = 15f;
         private const float DEACCELERATION = 0.5f;
         private const bool USE_PREDICTION = false;
+
+        // teleport constants
         private const int TELEPORT_COOLDOWN = 60*5;
         private const int TELEPORT_TRIGGER_DISTANCE = 2000;
         private const int TELEPORT_MAX_DISTANCE = 4000;
-        private int teleportTimer = 0;
-
-        private const float ENHANCEMENT_FACTOR = 0.75f;
-        private int BUFF_ID = -1;
-
+        
         public override string Texture => ModGlobal.MOD_TEXTURE_PATH + "Projectiles/CursedMagicTower";
 
         public override void SetStaticDefaults()
@@ -57,16 +55,25 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.timeLeft = Projectile.SentryLifeTime;
             Projectile.sentry = true;
             Projectile.netImportant = true;
-            
-            BUFF_ID = ModBuffID.SentryEnhancement;
 
             // DynamicParamManager.Register("CursedMagicTower.RealBulletSpeed", REAL_BULLET_SPEED, 0f, 30f, null);
 
         }
 
+        public override void OnSpawn(IEntitySource source)
+        {
+            Projectile.ai[0] = 0f; // fire timer
+            Projectile.ai[1] = 0f; // float counter
+            Projectile.ai[2] = 0f; // teleport timer
+        }
+
 
         public override void AI()
         {
+            int fireTimer = (int)Projectile.ai[0];
+            long floatCnt = (long)Projectile.ai[1];
+            int teleportTimer = (int)Projectile.ai[2];
+
             // Float in the air
             Vector2 vel = Projectile.velocity;
             Vector2 vel_dir = vel.SafeNormalize(Vector2.Zero);
@@ -96,10 +103,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             teleportTimer += teleportTimer >= TELEPORT_COOLDOWN ? 0 : 1;
 
             int fireInterval = FIRE_INTERVAL;
-            if(owner.HasBuff(BUFF_ID))
-            {
-                fireInterval = (int)(fireInterval * ENHANCEMENT_FACTOR);
-            }
 
             // find target and fire, as well as cooldown control
             // NPC target = FindTarget();
@@ -125,6 +128,10 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             }
 
             UpdateAnimation(target);
+
+            Projectile.ai[0] = fireTimer;
+            Projectile.ai[1] = floatCnt;
+            Projectile.ai[2] = teleportTimer;
         }
 
         private void FireAt(NPC target)
@@ -144,30 +151,22 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
             float SpeedOffset = MinionAIHelper.RandomFloat(-1f, 1f);
 
-            // Projectile proj = Projectile.NewProjectileDirect(
-            //     Projectile.GetSource_FromAI(),
-            //     Projectile.Center + ShootOffset,
-            //     direction * (RealBulletSpeed + SpeedOffset),
-            //     // ProjectileID.WaterStream, // Reusing vanilla projectile
-            //     ModProjectileID.CursedMagicTowerBulletSmall,
-            //     // ProjectileID.SapphireBolt,
-            //     Projectile.damage,
-            //     Projectile.knockBack,
-            //     Projectile.owner
-            // );
-
-            // proj.ai[0] = target.whoAmI;
-
-            // if(proj.ModProjectile is CursedMagicTowerBulletSmall bullet)
-            // {
-            //     bullet.Target = PredictedPos;
-            // }
-
-            NPC bullet_npc = NPC.NewNPCDirect(Projectile.GetSource_FromAI(), (int)Projectile.Center.X, (int)Projectile.Center.Y, ModContent.NPCType<CursedMagicTowerBulletNPC>());
-            bullet_npc.target = Projectile.owner;
-            bullet_npc.ai[0] = (float)Projectile.damage;
-            bullet_npc.ai[1] = (float)Projectile.knockBack;
-            bullet_npc.ai[2] = (float)target.whoAmI;
+            if(MinionAIHelper.IsServer())
+            {
+                NPC bullet_npc = NPC.NewNPCDirect(Projectile.GetSource_FromAI(), (int)Projectile.Center.X, (int)Projectile.Center.Y, ModContent.NPCType<CursedMagicTowerBulletNPC>());
+                // bullet_npc.ai[0] = (float)Projectile.damage;
+                // bullet_npc.ai[1] = (float)Projectile.knockBack;
+                // bullet_npc.ai[2] = (float)target.whoAmI;
+                if(bullet_npc.ModNPC is CursedMagicTowerBulletNPC bullet)
+                {
+                    bullet.damage = Projectile.damage;
+                    bullet.knockBack = Projectile.knockBack;
+                    bullet.targetId = target.whoAmI;
+                    bullet.ownerId = Projectile.owner;
+                }
+                // bullet_npc.netUpdate = true;
+            }
+            Projectile.netUpdate = true;
 
             SoundEngine.PlaySound(SoundID.Item43, Projectile.Center);
         }

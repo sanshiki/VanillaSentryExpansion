@@ -16,30 +16,27 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 {
     public class SandustSentry : ModProjectile
     {
-        private int shootTimer;
-
-        private bool isShooting = false;
-        private bool isOnSand = false;
-
+        /* -------------------- constants -------------------- */
+        // frame speed constants
         private const int NORMAL_FRAME_SPEED = 15;
         private const int SHOOT_FRAME_SPEED = 5;
+        private const int FRAME_COUNT = 4;
 
+        // shoot interval constants
         private const int SHOOT_INTERVAL = 120;
         private const int SHOOT_INTERVAL_FAST = 90;
-        private const float ENHANCEMENT_FACTOR = 0.75f;
-        private int BUFF_ID = -1;
-        private int shootInterval = SHOOT_INTERVAL;
-
+        
+        // gravity constants
         public static float Gravity = ModGlobal.SENTRY_GRAVITY;
         public static float MaxGravity = 20f;
+
+        // bullet constants
         private const float BULLET_SPEED_Y = 55f;
         private const float BULLET_SPEED_X = 20f;
         private const float BULLET_SPEED = 60f;
         private const float BULLET_GRAVITY = 2.0f;
         private const float MAX_LEGAL_HEIGHT = BULLET_SPEED_Y * BULLET_SPEED_Y / (2 * BULLET_GRAVITY)*0.8f;
-        private const int FRAME_COUNT = 4;
-
-
+        
         public override string Texture => "SummonerExpansionMod/Assets/Textures/Projectiles/SandustSentryV2";
 
         public override void SetStaticDefaults()
@@ -61,12 +58,13 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.aiStyle = -1;
             Projectile.timeLeft = Projectile.SentryLifeTime;
             Projectile.DamageType = DamageClass.Summon;
-            
-            BUFF_ID = ModBuffID.SentryEnhancement;
+            Projectile.netImportant = true;
         }
 
         public override void AI()
         {
+            int shootTimer = (int)Projectile.ai[0];
+            int shootInterval = SHOOT_INTERVAL;
             Player owner = Main.player[Projectile.owner];
             
             // apply gravity
@@ -86,14 +84,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
             if (target != null)
             {
-                shootInterval = isOnSand ? SHOOT_INTERVAL_FAST : SHOOT_INTERVAL;
-
-                // if(owner.HasBuff(BUFF_ID))
-                // {
-                //     shootInterval = (int)(shootInterval * ENHANCEMENT_FACTOR);
-                // }
-
-
                 if (shootTimer >= shootInterval)
                 {
                     shootTimer = 0;
@@ -106,8 +96,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     
                     Vector2 velocity = MinionAIHelper.PredictVelocityWithGravity(Projectile.Center, target.Center, target.velocity, BULLET_SPEED_Y, BULLET_GRAVITY, 60, 1);
 
-                    // Main.NewText("pred_t:"+ pred_t.ToString() + " vx:" + vx.ToString() + "isOnSand:" + isOnSand.ToString());    
-
                     if(velocity.X > BULLET_SPEED_X)
                     {
                         velocity.X = BULLET_SPEED_X;
@@ -117,19 +105,20 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                         velocity.X = -BULLET_SPEED_X;
                     }
 
-                    Projectile proj = Projectile.NewProjectileDirect(
-                        Projectile.GetSource_FromAI(),
-                        ShootCenter,
-                        velocity,
-                        ModProjectileID.SandustSentryBullet,
-                        Projectile.damage,
-                        Projectile.knockBack,
-                        Projectile.owner);
-
-                    ProjectileID.Sets.SentryShot[proj.type] = true;
+                    if(Projectile.owner == Main.myPlayer)
+                    {
+                        Projectile proj = Projectile.NewProjectileDirect(
+                            Projectile.GetSource_FromAI(),
+                            ShootCenter,
+                            velocity,
+                            ModProjectileID.SandustSentryBullet,
+                            Projectile.damage,
+                            Projectile.knockBack,
+                            Projectile.owner);
+                    }
 
                     shootTimer = 0; // Reset shoot animation
-                    isOnSand = false;
+                    Projectile.netUpdate = true;
 
 
                     SoundEngine.PlaySound(SoundID.Item95, Projectile.position);
@@ -142,6 +131,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
             // Animation
             UpdateAnimation(target, shootTimer);
+
+            Projectile.ai[0] = (float)shootTimer;
         }
 
         private void UpdateAnimation(NPC target, int shootTimer)
@@ -172,6 +163,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         public override bool OnTileCollide(Vector2 oldVelocity)
         {
             Projectile.velocity.X = 0f;
+            Projectile.netUpdate = true;
 
             return false;
         }

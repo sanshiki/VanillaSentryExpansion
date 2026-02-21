@@ -18,10 +18,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 {
     public class MachineGunSentry : SentryWithSpawnAnime
     {
-        // timers
-        private int shootTimer;
-        private int spawnTimer;
-
+        /* ------------------ constants ------------------ */
         // textures
         private const string BASE_TEXTURE_PATH = ModGlobal.MOD_TEXTURE_PATH + "Projectiles/MachineGunSentryV3Base";
         private const string GUN_TEXTURE_PATH = ModGlobal.MOD_TEXTURE_PATH + "Projectiles/MachineGunSentryV3Gun";
@@ -30,7 +27,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         public override string Texture => BASE_TEXTURE_PATH;
 
         // sentry state
-        private bool onGround;
         private const bool USE_PREDICTION = true;
 
         // sentry parameters
@@ -43,21 +39,15 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         private const int SHOOT_INTERVAL = 10;
         private const int SPAWN_TIME = 2*26;
 
-        // buff constants
-        private const float ENHANCEMENT_FACTOR = 0.75f;
-        private int BUFF_ID = -1;
-
         // gravity
-        public static float Gravity = ModGlobal.SENTRY_GRAVITY;
-        public static float MaxGravity = 20f;
+        public const float Gravity = ModGlobal.SENTRY_GRAVITY;
+        public const float MaxGravity = 20f;
 
-        // damage
-        private const int DEFENSE_TO_IGNORE = 20;
-        private const float WHIP_DAGGER_DECAY = 0.5f;
-
-        // direction
-        private Vector2 direction = new Vector2(0, -1);
-        // private Vector2 direction = new Vector2(1, 0);
+        /* ------------------ variables ------------------ */
+        private NonUniformFloatIntPacker timerPacker = new NonUniformFloatIntPacker(
+            SHOOT_INTERVAL, // shootTimer
+            SPAWN_TIME // spawnTimer
+        );
 
         public override void SetStaticDefaults()
         {
@@ -73,6 +63,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         {
             PunchCameraModifier modifier = new PunchCameraModifier(Projectile.Center, (-MathHelper.PiOver2).ToRotationVector2(), 10f, 6f, 10, 1000f, "MachineGunSentry");
             Main.instance.CameraModifiers.Add(modifier);
+
+            Projectile.ai[1] = -ModGlobal.PI_FLOAT/2f;
         }
 
         public override void SetDefaults()
@@ -88,12 +80,21 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.timeLeft = Projectile.SentryLifeTime;
             Projectile.DamageType = DamageClass.Summon;
             Projectile.ArmorPenetration = 5;
-            
-            BUFF_ID = ModBuffID.SentryEnhancement;
+            Projectile.netImportant = true;
         }
+
 
         public override void AI()
         {
+            // decode
+            int[] timer_decode_values = timerPacker.Decode(Projectile.ai[0]);
+            int shootTimer = timer_decode_values[0];
+            int spawnTimer = timer_decode_values[1];
+            float direction = Projectile.ai[1];
+            Vector2 dir_vec = direction.ToRotationVector2();
+            bool onGround = Projectile.ai[2] != 0;
+
+
             Player owner = Main.player[Projectile.owner];
 
             // if on ground, spawnTimer++
@@ -109,6 +110,17 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 Projectile.velocity.Y = MaxGravity;
             }
 
+            // gun adjust
+            if (spawnTimer >= SPAWN_TIME / 2 && spawnTimer < SPAWN_TIME)
+            {
+                // (0, -1) -> (-1, 0)
+                float GunAdjustProcess = (float)Math.Min(Math.Max((float)(spawnTimer - SPAWN_TIME/2) / SPAWN_TIME * 2, 0.0f), 1.0f);
+
+                float ang = GunAdjustProcess * ModGlobal.PI_FLOAT / 2;
+                dir_vec = new Vector2(-(float)Math.Sin(ang), -(float)Math.Cos(ang));
+                dir_vec.Normalize();
+            }
+
             // Targeting
             // NPC target = FindTarget(1500f); // Range: 1500 pixels
             NPC target = MinionAIHelper.SearchForTargets(
@@ -119,13 +131,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 null).TargetNPC;
 
             int shootInterval = SHOOT_INTERVAL;
-            if (target != null && spawnTimer > SPAWN_TIME)
+            if (target != null && spawnTimer >= SPAWN_TIME)
             {
-                // if(owner.HasBuff(BUFF_ID))
-                // {
-                //     shootInterval = (int)(shootInterval * ENHANCEMENT_FACTOR);
-                // }
-
                 if (shootTimer >= shootInterval)
                 {
                     shootTimer = 0;
@@ -141,47 +148,40 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                             Projectile, target, PRED_BULLET_SPEED, 60, 1);
                     }
 
-                    // Main.NewText("projectile damage: " + Projectile.damage + " add damage: " + addDamage + " total damage: " + totalDamage);
 
-                    // if (Main.rand.NextFloat() < 0.29069766f)
-                    // {
-                    //     Dust dust;
-                    //     // You need to set position depending on what you are doing. You may need to subtract width/2 and height/2 as well to center the spawn rectangle.
-                    //     Vector2 position = Main.LocalPlayer.Center;
-                    //     dust = Main.dust[Terraria.Dust.NewDust(position, 0, 0, 325, -2.5581398f, -1.860465f, 0, new Color(255,255,255), 0.6395349f)];
-                    // }
-
-                    Vector2 BulletShellVelocity = direction.RotatedBy(-2f/3f*ModGlobal.PI_FLOAT*Projectile.spriteDirection) * 2f;
+                    Vector2 BulletShellVelocity = dir_vec.RotatedBy(-2f/3f*ModGlobal.PI_FLOAT*Projectile.spriteDirection) * 2f;
                     Dust BulletShellDust = Dust.NewDustDirect(Projectile.Center + new Vector2(-5f*Projectile.spriteDirection, -18f), 1, 1, ModContent.DustType<SmallBulletShell>(), BulletShellVelocity.X, BulletShellVelocity.Y);
                     BulletShellDust.scale = 0.65f;
                     BulletShellDust.alpha = 0;
 
                     // Fire!
-                    direction = PredictedPos - Projectile.Center;
-                    direction.Normalize();
-                    Vector2 bulletVelocity = direction * REAL_BULLET_SPEED;
+                    dir_vec = PredictedPos - Projectile.Center;
+                    dir_vec.Normalize();
+                    Vector2 bulletVelocity = dir_vec * REAL_BULLET_SPEED;
 
-                    Vector2 bulletOffset = new Vector2(15f, -5f) + direction * 27f;
+                    Vector2 bulletOffset = new Vector2(15f, -5f) + dir_vec * 27f;
 
-                    Projectile bullet = Projectile.NewProjectileDirect(
-                        Projectile.GetSource_FromAI(),
-                        Projectile.Center + bulletOffset,
-                        bulletVelocity,
-                        ModProjectileID.MachineGunSentryBullet,
-                        // ProjectileID.Bullet,
-                        Projectile.damage,
-                        Projectile.knockBack,
-                        Projectile.owner);
-
-                    bullet.ArmorPenetration = 5;
-                    // Main.NewText("Damage: " + Projectile.damage + "Bullet Damage: " + bullet.damage);
-
-                    if(bullet.ModProjectile is MachineGunSentryBullet machineGunBullet)
+                    if(Projectile.owner == Main.myPlayer)
                     {
-                        machineGunBullet.SelfDamage = 8;
+                        Projectile bullet = Projectile.NewProjectileDirect(
+                            Projectile.GetSource_FromAI(),
+                            Projectile.Center + bulletOffset,
+                            bulletVelocity,
+                            ModProjectileID.MachineGunSentryBullet,
+                            // ProjectileID.Bullet,
+                            Projectile.damage,
+                            Projectile.knockBack,
+                            Projectile.owner,
+                            8   // self damage
+                        );
+
+                        // Main.NewText("Damage: " + Projectile.damage + "Bullet Damage: " + bullet.damage);
                     }
+                        
 
                     shootTimer = 0; // Reset shoot animation
+
+                    Projectile.netUpdate = true;
 
                     SoundEngine.PlaySound(SoundID.Item11, Projectile.Center);
                 }
@@ -193,12 +193,21 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
             // Animation
             // UpdateAnimation(target);
-            Projectile.spriteDirection = direction.X > 0 ? 1 : -1;
+            Projectile.spriteDirection = dir_vec.X > 0 ? 1 : -1;
+
+            Projectile.ai[0] = timerPacker.Encode(shootTimer, spawnTimer >= SPAWN_TIME ? SPAWN_TIME : spawnTimer);
+            Projectile.ai[1] = dir_vec.ToRotation();
+            Projectile.ai[2] = onGround ? 1f : 0f;
         }
 
 
         public override bool PreDraw(ref Color lightColor)
         {
+            int[] timer_decode_values = timerPacker.Decode(Projectile.ai[0]);
+            int spawnTimer = timer_decode_values[1];
+            float direction = Projectile.ai[1];
+            Vector2 dir_vec = direction.ToRotationVector2();
+            
             Texture2D BaseTexture = ModContent.Request<Texture2D>(BASE_TEXTURE_PATH).Value;
             Texture2D GunTexture = ModContent.Request<Texture2D>(GUN_TEXTURE_PATH).Value;
             Texture2D FrontBoardTexture = ModContent.Request<Texture2D>(FRONT_BOARD_TEXTURE_PATH).Value;
@@ -207,14 +216,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             float SpawnProcess = (float)Math.Min((float)spawnTimer / SPAWN_TIME * 2, 1.0f);
             float GunAdjustProcess = (float)Math.Min(Math.Max((float)(spawnTimer - SPAWN_TIME/2) / SPAWN_TIME * 2, 0.0f), 1.0f);
             float SpawnStartY = (BaseTexture.Height + 22f) * (1 - SpawnProcess);
-
-            if (spawnTimer >= SPAWN_TIME / 2 && spawnTimer < SPAWN_TIME)
-            {
-                // (0, -1) -> (-1, 0)
-                float ang = GunAdjustProcess * ModGlobal.PI_FLOAT / 2;
-                direction = new Vector2(-(float)Math.Sin(ang), -(float)Math.Cos(ang));
-                direction.Normalize();
-            }
 
             // always draw base
             Vector2 BaseWorldPos = MinionAIHelper.ConvertToWorldPos(Projectile, new Vector2(0, 0));
@@ -262,7 +263,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 GunRect,
                 lightColor,
                 // Projectile.rotation,
-                direction.ToRotation() + (Projectile.spriteDirection == 1 ? 0 : MathHelper.Pi),
+                dir_vec.ToRotation() + (Projectile.spriteDirection == 1 ? 0 : MathHelper.Pi),
                 GunOrigin
             );
 
@@ -288,15 +289,18 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         public override bool OnTileCollide(Vector2 oldVelocity)
         {
-            onGround = true;
+            bool onGround = true;
+            Projectile.ai[2] = onGround ? 1f : 0f;
             // Projectile.velocity = Vector2.Zero;
             Projectile.velocity.X = 0f;
+            Projectile.netUpdate = true;
             return false;
         }
 
         public override void SetAttached(bool attached)
         {
-            onGround = attached;
+            bool onGround = attached;
+            Projectile.ai[2] = onGround ? 1f : 0f;
             // Projectile.tileCollide = !attached;
         }
 
@@ -310,12 +314,5 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 		{
 			return false;
 		}
-
-        // public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
-        // {
-        //     int bonusDamage = DEFENSE_TO_IGNORE / 2;
-        //     modifiers.FlatBonusDamage += bonusDamage;
-        // }
-
     }
 }

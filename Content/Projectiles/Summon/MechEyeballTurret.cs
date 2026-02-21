@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ID;
@@ -16,11 +17,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 {
     public class MechEyeballTurret : ModProjectile
     {
-        private const float ENHANCEMENT_FACTOR = 0.75f;
-        private int BUFF_ID = -1;
-
-        public static float Gravity = ModGlobal.SENTRY_GRAVITY;
-        public static float MaxGravity = 20f;
+        public const float Gravity = ModGlobal.SENTRY_GRAVITY;
+        public const float MaxGravity = 20f;
 
         // animation constants
         private const int FRAME_NUM = 11;
@@ -65,12 +63,9 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         // variables
         private int State = RED_STATE;
-        private Vector2 direction = new Vector2(1, 0);
+        private float direction = 0f;
         private float AngleBeforeSwitch;
         private float CurrentStickDownDist;
-        private int shootTimer;
-        private int RealFrame = 1;
-        private int StateMaintainCnt = 0;
 
         public override string Texture => TEXTURE_PATH;
 
@@ -93,11 +88,22 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.aiStyle = -1;
             Projectile.timeLeft = Projectile.SentryLifeTime;
             Projectile.DamageType = DamageClass.Summon;
-            BUFF_ID = ModBuffID.SentryEnhancement;
+            Projectile.netImportant = true;
+        }
+
+        public override void OnSpawn(IEntitySource source)
+        {
+            Projectile.ai[0] = 0f; // shootTimer
+            Projectile.ai[1] = 1f; // RealFrame
+            Projectile.ai[2] = 0f; // StateMaintainCnt
         }
 
         public override void AI()
         {
+            int shootTimer = (int)Projectile.ai[0];
+            int RealFrame = (int)Projectile.ai[1];
+            int StateMaintainCnt = (int)Projectile.ai[2];
+
             Player owner = Main.player[Projectile.owner];
             
             // apply gravity
@@ -119,16 +125,18 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             float distance = 99999;
             if(target != null && (State == RED_STATE || State == GREEN_STATE))
             {
+                Vector2 dirVec;
                 if(State == RED_STATE)  // only use prediction when in red state
                 {
-                    direction = MinionAIHelper.PredictTargetPosition(Projectile.Center + ShootOffset, target.Center, target.velocity, PRED_RED_BULLET_SPEED, 60, 3) - Projectile.Center - ShootOffset;
+                    dirVec = MinionAIHelper.PredictTargetPosition(Projectile.Center + ShootOffset, target.Center, target.velocity, PRED_RED_BULLET_SPEED, 60, 3) - Projectile.Center - ShootOffset;
                 }
                 else // otherwise, use target position
                 {
-                    direction = target.Center - Projectile.Center - ShootOffset;
+                    dirVec = target.Center - Projectile.Center - ShootOffset;
                 }
-                distance = direction.Length();
-                direction.Normalize();
+                distance = dirVec.Length();
+                if (distance > 0f)
+                    direction = dirVec.ToRotation();
             }
 
             switch (State)
@@ -140,26 +148,25 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                         shootTimer++;
 
                         int shootInterval = RED_SHOOT_INTERVAL;
-                        if(owner.HasBuff(BUFF_ID))
-                        {
-                            shootInterval = (int)(shootInterval * ENHANCEMENT_FACTOR);
-                        }
 
                         if (shootTimer >= shootInterval)
                         {
                             // Fire!
                             
-                            Vector2 velocity = direction * RED_BULLET_SPEED;
+                            Vector2 velocity = direction.ToRotationVector2() * RED_BULLET_SPEED;
 
-                            Projectile seed = Projectile.NewProjectileDirect(
-                                Projectile.GetSource_FromAI(),
-                                Projectile.Center + ShootOffset,
-                                velocity,
-                                // ProjectileID.Seed,
-                                ProjectileID.MiniRetinaLaser,
-                                (int)(Projectile.damage * RED_DMG_FACTOR),
-                                Projectile.knockBack,
-                                Projectile.owner);
+                            if(Projectile.owner == Main.myPlayer)
+                            {
+                                Projectile.NewProjectileDirect(
+                                    Projectile.GetSource_FromAI(),
+                                    Projectile.Center + ShootOffset,
+                                    velocity,
+                                    // ProjectileID.Seed,
+                                    ProjectileID.MiniRetinaLaser,
+                                    (int)(Projectile.damage * RED_DMG_FACTOR),
+                                    Projectile.knockBack,
+                                    Projectile.owner);
+                            }
                             shootTimer = 0; // Reset shoot animation
                         }
                     }
@@ -175,9 +182,10 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     // swtich state
                     if(StateMaintainCnt++ > STATE_MAINTAIN_DURATION && distance < SWTICH_STATE_THRESHOLD && target != null)
                     {
-                        AngleBeforeSwitch = direction.ToRotation();
+                        AngleBeforeSwitch = direction;
                         StateMaintainCnt = 0;
                         State = RED_TO_GREEN;
+                        Projectile.netUpdate = true;
                     }
                 } break;
                 case RED_TO_GREEN:
@@ -186,6 +194,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     if(finished)
                     {
                         State = GREEN_STATE;
+                        Projectile.netUpdate = true;
                     }
                 } break;
                 case GREEN_STATE:
@@ -195,18 +204,16 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                         shootTimer++;
 
                         int shootInterval = GREEN_SHOOT_INTERVAL;
-                        if(owner.HasBuff(BUFF_ID))
-                        {
-                            shootInterval = (int)(shootInterval * ENHANCEMENT_FACTOR);
-                        }
 
                         if (shootTimer >= shootInterval)
                         {
                             // Fire!
                             
-                            Vector2 velocity = direction * GREEN_BULLET_SPEED;
+                            Vector2 velocity = direction.ToRotationVector2() * GREEN_BULLET_SPEED;
 
-                            Projectile seed = Projectile.NewProjectileDirect(
+                            if(Projectile.owner == Main.myPlayer)
+                            {
+                                Projectile.NewProjectileDirect(
                                 Projectile.GetSource_FromAI(),
                                 Projectile.Center + ShootOffset,
                                 velocity,
@@ -215,6 +222,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                                 (int)(Projectile.damage * GREEN_DMG_FACTOR),
                                 0,
                                 Projectile.owner);
+                            }
                             shootTimer = 0; // Reset shoot animation
 
                             SoundEngine.PlaySound(SoundID.Item34, Projectile.position);
@@ -233,8 +241,9 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     if(StateMaintainCnt++ > STATE_MAINTAIN_DURATION && distance > SWTICH_STATE_THRESHOLD && target != null)
                     {
                         StateMaintainCnt = 0;
-                        AngleBeforeSwitch = direction.ToRotation();
+                        AngleBeforeSwitch = direction;
                         State = GREEN_TO_RED;
+                        Projectile.netUpdate = true;
                     }
                 } break;
                 case GREEN_TO_RED:
@@ -243,6 +252,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     if(finished)
                     {
                         State = RED_STATE;
+                        Projectile.netUpdate = true;
                     }
                 } break;
             }
@@ -258,10 +268,16 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 Projectile.frame = 6;
             else if(RealFrame > 12 && RealFrame <= 15)
                 Projectile.frame = RealFrame - 6;
+
+            // Main.NewText("State: " + State + ", RealFrame: " + RealFrame + ", CurrentStickDownDist: " + CurrentStickDownDist);
+
+            Projectile.ai[0] = (float)shootTimer;
+            Projectile.ai[2] = (float)StateMaintainCnt;
         }
 
         private bool Red2GreenAnimation()
         {
+            int RealFrame = (int)Projectile.ai[1];
             bool finished = false;
             Projectile.frameCounter++;
             if(Projectile.frameCounter >= SWTICH_FRAME_SPEED)
@@ -274,12 +290,25 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 RealFrame = REAL_FRAME_NUM-2;
                 finished = true;
             }
-            
+
+            if (RealFrame > 3 && RealFrame <= 6)
+            {
+                CurrentStickDownDist += STICK_DOWN_SPEED;
+                CurrentStickDownDist = Math.Clamp(CurrentStickDownDist, 0, STICK_DOWN_DIST);
+            }
+            else if (RealFrame > 9 && RealFrame <= 12)
+            {
+                CurrentStickDownDist += STICK_DOWN_SPEED * -1;
+                CurrentStickDownDist = Math.Clamp(CurrentStickDownDist, 0, STICK_DOWN_DIST);
+            }
+
+            Projectile.ai[1] = (float)RealFrame;
             return finished;
         }
 
         private bool Green2RedAnimation()
         {
+            int RealFrame = (int)Projectile.ai[1];
             bool finished = false;
             Projectile.frameCounter++;
     
@@ -293,6 +322,20 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 RealFrame = 1;
                 finished = true;
             }
+
+            if (RealFrame > 3 && RealFrame <= 6)
+            {
+                CurrentStickDownDist += STICK_DOWN_SPEED * -1;
+                CurrentStickDownDist = Math.Clamp(CurrentStickDownDist, 0, STICK_DOWN_DIST);
+            }
+            else if (RealFrame > 9 && RealFrame <= 12)
+            {
+                CurrentStickDownDist += STICK_DOWN_SPEED;
+                CurrentStickDownDist = Math.Clamp(CurrentStickDownDist, 0, STICK_DOWN_DIST);
+            }
+
+
+            Projectile.ai[1] = (float)RealFrame;
             return finished;
         }
 
@@ -318,6 +361,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         public override bool PreDraw(ref Color lightColor)
         {
+            int RealFrame = (int)Projectile.ai[1];
             int width = (int)Projectile.width;
             int height = (int)Projectile.height;
             Texture2D TextureSprite = ModContent.Request<Texture2D>(TEXTURE_PATH).Value;
@@ -351,7 +395,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                         ReadEyeWorldPos,
                         RedTextureRect,
                         lightColor,
-                        direction.ToRotation(),
+                        direction,
                         RedEyeOrigin
                     );
                 } break;
@@ -359,19 +403,17 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 case GREEN_TO_RED:
                 {
                     Vector2 NextPos = new Vector2(0, -(height - RedEyeSize.Y - 4f) / 2f);
-                    float NextAngle = direction.ToRotation();
+                    float NextAngle = direction;
                     int CurrentFrame = RealFrame;
                     bool isRed2Green = State == RED_TO_GREEN;
 
                     if(CurrentFrame <= 3)
                     {
-                        NextAngle = CalculateRotation(direction.ToRotation(), isRed2Green ? ModGlobal.PI_FLOAT/2 : AngleBeforeSwitch, SWITCH_ROTATE_SPEED);
-                        direction = new Vector2(1, 0).RotatedBy(NextAngle);
+                        NextAngle = CalculateRotation(direction, isRed2Green ? ModGlobal.PI_FLOAT/2 : AngleBeforeSwitch, SWITCH_ROTATE_SPEED);
+                        direction = NextAngle;
                     }
                     else if(CurrentFrame > 3 && CurrentFrame <= 6)
                     {
-                        CurrentStickDownDist += STICK_DOWN_SPEED * (isRed2Green ? 1 : -1);
-                        CurrentStickDownDist = Math.Clamp(CurrentStickDownDist, 0, STICK_DOWN_DIST);
                         NextPos = new Vector2(0, -(height - RedEyeSize.Y - 4f) / 2f + CurrentStickDownDist);
                     }
                     else if(CurrentFrame > 6 && CurrentFrame <= 9)
@@ -380,14 +422,12 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     }
                     else if(CurrentFrame > 9 && CurrentFrame <= 12)
                     {
-                        CurrentStickDownDist += STICK_DOWN_SPEED * (isRed2Green ? -1 : 1);
-                        CurrentStickDownDist = Math.Clamp(CurrentStickDownDist, 0, STICK_DOWN_DIST);
                         NextPos = new Vector2(0, -(height - RedEyeSize.Y - 4f) / 2f + CurrentStickDownDist);
                     }
                     else if(CurrentFrame > 12 && CurrentFrame <= 15)
                     {
-                        NextAngle = CalculateRotation(direction.ToRotation(), isRed2Green ? AngleBeforeSwitch : ModGlobal.PI_FLOAT/2, SWITCH_ROTATE_SPEED);
-                        direction = new Vector2(1, 0).RotatedBy(NextAngle);
+                        NextAngle = CalculateRotation(direction, isRed2Green ? AngleBeforeSwitch : ModGlobal.PI_FLOAT/2, SWITCH_ROTATE_SPEED);
+                        direction = NextAngle;
                     }
                     if(CurrentFrame < 8)
                     {
@@ -398,7 +438,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                             ReadEyeWorldPos,
                             RedTextureRect,
                             lightColor,
-                            direction.ToRotation(),
+                            direction,
                             RedEyeOrigin
                         );
                     }
@@ -425,7 +465,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                         GreenEyeWorldPos,
                         GreenTextureRect,
                         lightColor,
-                        direction.ToRotation(),
+                        direction,
                         GreenEyeOrigin
                     );
                 } break;
@@ -508,6 +548,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         {
             // Projectile.velocity = Vector2.Zero;
             Projectile.velocity.X = 0f;
+            Projectile.netUpdate = true;
             return false;
         }
 
@@ -522,6 +563,19 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 			return false;
 		}
 
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            writer.Write(direction);
+            writer.Write(AngleBeforeSwitch);
+            writer.Write(CurrentStickDownDist);
+        }
+        
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            direction = reader.ReadSingle();
+            AngleBeforeSwitch = reader.ReadSingle();
+            CurrentStickDownDist = reader.ReadSingle();
+        }
 
     }
 }

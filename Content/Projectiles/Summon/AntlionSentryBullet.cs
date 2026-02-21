@@ -6,6 +6,7 @@ using Terraria.DataStructures;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.Audio;
+using System.IO;
 
 using SummonerExpansionMod.Initialization;
 using SummonerExpansionMod.ModUtils;
@@ -20,8 +21,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         private const float EXPLOSION_RADIUS = 60f;
         private const int SPLIT_COUNT = 4;
 
-        private bool hasSplit = false;
-
         public override string Texture => ModGlobal.VANILLA_PROJECTILE_TEXTURE_PATH + ProjectileID.SandBallFalling;
 
         public override void SetDefaults()
@@ -35,6 +34,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.timeLeft = 600; // 存活时间
             Projectile.tileCollide = true;
             Projectile.DamageType = DamageClass.Summon;
+            // Projectile.netImportant = true;
         }
 
         public override void AI()
@@ -49,44 +49,25 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             // 旋转，增加视觉效果
             Projectile.rotation += Projectile.velocity.X * 0.05f;
 
-            // if(Projectile.velocity.Y > 0.1f && !hasSplit)
-            // {
-            //     NPC target = MinionAIHelper.SearchForTargets(
-            //         Main.player[Projectile.owner],
-            //         Projectile,
-            //         200f,
-            //         false,
-            //         null).TargetNPC;
-            //     if(target != null)
-            //     {
-            //         // split into 4 bullets
-            //         for(int i = 0; i < SPLIT_COUNT; i++)
-            //         {
-            //             Projectile bullet = Projectile.NewProjectileDirect(Projectile.GetSource_FromAI(), Projectile.Center, new Vector2(Projectile.velocity.X, Projectile.velocity.Y), ModProjectileID.AntlionSentryBullet, Projectile.damage, 0, Projectile.owner);
-            //             bullet.velocity = new Vector2(Projectile.velocity.X + (float)(i-SPLIT_COUNT/2)/SPLIT_COUNT*5f, Projectile.velocity.Y * MinionAIHelper.RandomFloat(0.7f, 1.0f));
-            //             if(bullet.ModProjectile is AntlionSentryBullet bulletProjectile)
-            //             {
-            //                 bulletProjectile.hasSplit = true;
-            //             }
-            //         }
-            //         Projectile.Kill();
-            //     }
-            // }
+            bool hasSplit = Projectile.ai[0] == 0f ? false : true;
+
 
             if(Projectile.velocity.Y > 3f && !hasSplit)
             {
                 // split into 4 bullets
                 for(int i = 0; i < SPLIT_COUNT; i++)
                 {
-                    Projectile bullet = Projectile.NewProjectileDirect(Projectile.GetSource_FromAI(), Projectile.Center, new Vector2(Projectile.velocity.X, Projectile.velocity.Y), ModProjectileID.AntlionSentryBullet, (int)(Projectile.damage * 0.5f), Projectile.knockBack, Projectile.owner);
-                    bullet.velocity = new Vector2(Projectile.velocity.X + (float)(i-SPLIT_COUNT/2)/SPLIT_COUNT*8f, Projectile.velocity.Y * MinionAIHelper.RandomFloat(0.5f, 1.0f));
-                    if(bullet.ModProjectile is AntlionSentryBullet bulletProjectile)
+                    if(Projectile.owner == Main.myPlayer)
                     {
-                        bulletProjectile.hasSplit = true;
+                        Vector2 vel = new Vector2(Projectile.velocity.X + (float)(i-SPLIT_COUNT/2)/SPLIT_COUNT*8f, Projectile.velocity.Y * MinionAIHelper.RandomFloat(0.5f, 1.0f));
+                        Projectile bullet = Projectile.NewProjectileDirect(Projectile.GetSource_FromAI(), Projectile.Center, vel, ModProjectileID.AntlionSentryBullet, (int)(Projectile.damage * 0.5f), Projectile.knockBack, Projectile.owner, 1f);
                     }
                 }
                 Projectile.Kill();
+                
             }
+
+            // Main.NewText("proj id:" + Projectile.identity + " hasSplit:" + hasSplit.ToString());
 
             // 粒子效果（可选）
             if (Main.rand.NextBool(5))
@@ -98,23 +79,23 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         // 击中NPC时
         public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
         {
+            // Main.NewText("onhitnpc explosion triggerred.");
             Explosion(target);
         }
 
         // 撞击地面时
         public override bool OnTileCollide(Vector2 oldVelocity)
         {
+            bool hasSplit = Projectile.ai[0] == 0f ? false : true;
             if(!hasSplit)
             {
+                // Main.NewText("ontilecollide non hassplit case");
                 if (Projectile.velocity.X != oldVelocity.X && Math.Abs(oldVelocity.X) > 0.1f)
                 {
                     for(int i = 0; i < SPLIT_COUNT-1; i++)
                     {
-                        float velY = MinionAIHelper.RandomFloat(-3f, 3f) + oldVelocity.Y * 0.5f;                     Projectile bullet = Projectile.NewProjectileDirect(Projectile.GetSource_FromAI(), Projectile.Center, new Vector2(-oldVelocity.X*MinionAIHelper.RandomFloat(0.3f, 0.7f), velY), ModProjectileID.AntlionSentryBullet, (int)(Projectile.damage * 0.5f), Projectile.knockBack, Projectile.owner);
-                        if(bullet.ModProjectile is AntlionSentryBullet bulletProjectile)
-                        {
-                            bulletProjectile.hasSplit = true;
-                        }
+                        float velY = MinionAIHelper.RandomFloat(-3f, 3f) + oldVelocity.Y * 0.5f;                     
+                        Projectile bullet = Projectile.NewProjectileDirect(Projectile.GetSource_FromAI(), Projectile.Center, new Vector2(-oldVelocity.X*MinionAIHelper.RandomFloat(0.3f, 0.7f), velY), ModProjectileID.AntlionSentryBullet, (int)(Projectile.damage * 0.5f), Projectile.knockBack, Projectile.owner, 1f);
                     }
 
                     Projectile.Kill();
@@ -126,11 +107,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                         for(int i = 0; i < SPLIT_COUNT-1; i++)
                         {
                             float velX = MinionAIHelper.RandomFloat(-3f, 3f) + oldVelocity.X * 0.5f;
-                            Projectile bullet = Projectile.NewProjectileDirect(Projectile.GetSource_FromAI(), Projectile.Center, new Vector2(velX, -oldVelocity.Y*MinionAIHelper.RandomFloat(0.3f, 0.7f)), ModProjectileID.AntlionSentryBullet, (int)(Projectile.damage * 0.5f), Projectile.knockBack, Projectile.owner);
-                            if(bullet.ModProjectile is AntlionSentryBullet bulletProjectile)
-                            {
-                                bulletProjectile.hasSplit = true;
-                            }
+                            Projectile bullet = Projectile.NewProjectileDirect(Projectile.GetSource_FromAI(), Projectile.Center, new Vector2(velX, -oldVelocity.Y*MinionAIHelper.RandomFloat(0.3f, 0.7f)), ModProjectileID.AntlionSentryBullet, (int)(Projectile.damage * 0.5f), Projectile.knockBack, Projectile.owner, 1f);
                         }
 
                         Projectile.Kill();
@@ -138,8 +115,14 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 }
             }
             else
+            {
+                // Main.NewText("ontilecollide hassplit case");
                 Explosion(null);
-            return false; // Kill() 在 Explosion 内处理
+            }
+
+            Projectile.netUpdate = true;
+            
+            return false;
         }
 
         private void Explosion(NPC target)
@@ -151,36 +134,51 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Player owner = Main.player[Projectile.owner];
 
             // 伤害范围内的NPC
-            foreach (NPC npc in Main.npc)
+            if(MinionAIHelper.IsServer())
             {
-                if (npc.active && !npc.friendly && npc.Distance(center) < radius && npc != target && !npc.dontTakeDamage && !npc.immortal)
+                foreach (NPC npc in Main.npc)
                 {
-                    // 计算伤害
-                    int damage = (int)(Projectile.damage * 0.8f); // 爆炸伤害稍低
-                    // Main.NewText("damage:" + damage.ToString());
-                    NPC.HitInfo hitInfo = new NPC.HitInfo();
-                    hitInfo.Crit = false;
-                    hitInfo.DamageType = DamageClass.Summon;
-                    hitInfo.HitDirection = 0;
-                    hitInfo.Knockback = 0f;
-                    hitInfo.Damage = damage;
-                    
-                    // npc.StrikeNPC(hitInfo, false, false);
-                    owner.StrikeNPCDirect(npc, hitInfo);
+                    if (npc.active && !npc.friendly && npc.Distance(center) < radius && npc != target && !npc.dontTakeDamage && !npc.immortal)
+                    {
+                        // 计算伤害
+                        int damage = (int)(Projectile.damage * 0.8f); // 爆炸伤害稍低
+                        // Main.NewText("damage:" + damage.ToString());
+                        NPC.HitInfo hitInfo = new NPC.HitInfo();
+                        hitInfo.Crit = false;
+                        hitInfo.DamageType = DamageClass.Summon;
+                        hitInfo.HitDirection = 0;
+                        hitInfo.Knockback = 0f;
+                        hitInfo.Damage = damage;
+                        
+                        // npc.StrikeNPC(hitInfo, false, false);
+                        owner.StrikeNPCDirect(npc, hitInfo);
+                    }
                 }
             }
 
-            // 生成Dust特效
-            for (int i = 0; i < 20; i++)
-            {
-                Vector2 dustVel = Main.rand.NextVector2Circular(3f, 3f);
-                Dust.NewDustPerfect(center, DustID.Sand, dustVel).scale = 1.8f;
-            }
-
-            // 播放爆炸音效
-            SoundEngine.PlaySound(SoundID.Dig, Projectile.position);
-
             Projectile.Kill();
+        }
+
+        public override void Kill(int timeLeft)
+        {
+            bool hasSplit = Projectile.ai[0] == 0f ? false : true;
+            
+            if(!MinionAIHelper.IsServer())
+            {
+                if(hasSplit)
+                {
+                    // 生成Dust特效
+                    for (int i = 0; i < 10; i++)
+                    {
+                        // Vector2 dustVel = Main.rand.NextVector2Circular(3f, 3f);
+                        // Dust.NewDustPerfect(center, DustID.Sand, dustVel).scale = 1.5f;
+                        Dust d = Dust.NewDustDirect(Projectile.Center-Projectile.Size/2, Projectile.width, Projectile.height, DustID.Sand, 0f, 0f);
+                        d.scale = 1.2f;
+                    }
+                }
+                // 播放爆炸音效
+                SoundEngine.PlaySound(SoundID.Dig, Projectile.position);
+            }
         }
 
     }

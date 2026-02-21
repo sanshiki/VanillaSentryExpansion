@@ -10,6 +10,7 @@ using Terraria.Audio;
 using Microsoft.Xna.Framework.Graphics;
 using SummonerExpansionMod.Content.Buffs.Summon;
 using SummonerExpansionMod.Initialization;
+using SummonerExpansionMod.ModUtils;
 
 namespace SummonerExpansionMod.Content.Projectiles.Summon
 {
@@ -17,27 +18,25 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
     public class TowerOfDryadsBlessing : ModProjectile
     {
 
+        /* ----------------- constants ----------------- */
         // leaf orbit parameters
         private const int LEAF_ORBIT_RADIUS_OUTER = 300;
         private const int LEAF_ORBIT_RADIUS_INNER = 100;
         private const int LEAF_NUM = 10;
         private const int LEAF_RESPAWN_INTERVAL = 40*17;
         private const int LIVE_TIME = 40*10;
+        private const int INIT_LEAF_CNT = LEAF_RESPAWN_INTERVAL - 40*3;
 
-        // buff constants
-        private const float ENHANCEMENT_FACTOR = 0.75f;
-        private int BUFF_ID = -1;
+        // gravity constants
+        public const float Gravity = ModGlobal.SENTRY_GRAVITY;
+        public const float MaxGravity = 20f;
 
-        private int LeafTimer = LEAF_RESPAWN_INTERVAL - 40*3;
+        public override string Texture => ModGlobal.MOD_TEXTURE_PATH + "Projectiles/TowerOfDryadsBlessing";
 
-        public static float Gravity = ModGlobal.SENTRY_GRAVITY;
-        public static float MaxGravity = 20f;
-
+        /* ----------------- variables ----------------- */
         Vector2 CenterOffset = new Vector2(0, -10);
 
         private List<int> LeafProjectileIndex = new List<int>();
-
-        public override string Texture => ModGlobal.MOD_TEXTURE_PATH + "Projectiles/TowerOfDryadsBlessing";
 
         public override void SetStaticDefaults()
         {
@@ -56,8 +55,11 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.timeLeft = Projectile.SentryLifeTime;
             Projectile.tileCollide = true;
             Projectile.ignoreWater = true;
-            
-            BUFF_ID = ModBuffID.SentryEnhancement;
+        }
+
+        public override void OnSpawn(IEntitySource source)
+        {
+            Projectile.ai[0] = (float)INIT_LEAF_CNT;
         }
 
         public override void AI()
@@ -71,6 +73,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 Projectile.velocity.Y = MaxGravity;
             }
 
+            int LeafTimer = (int)Projectile.ai[0];
+
 
             if (LeafTimer <= LIVE_TIME)
             {
@@ -81,52 +85,64 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     if(proj.ModProjectile is TowerOfDryadsBlessingProjectile leafProj)
                     {
                         leafProj.RotateCenter = Projectile.Center + CenterOffset;
+                        proj.netUpdate = true;
                     }
                 }
 
                 Projectile leaf = Main.projectile[LeafProjectileIndex[0]];
                 int radius = (int)Vector2.Distance(leaf.Center, Projectile.Center+CenterOffset);
 
-                // 给范围内玩家加树妖祝福
-                if (owner.active && !owner.dead && Vector2.Distance(owner.Center, Projectile.Center) < radius)
+                if(MinionAIHelper.IsServer())
                 {
-                    owner.AddBuff(BuffID.DryadsWard, 30);
-                }
-
-                // 给范围内敌人加树妖祸害
-                for (int i = 0; i < Main.maxNPCs; i++)
-                {
-                    NPC npc = Main.npc[i];
-                    if (npc.active && !npc.friendly && npc.lifeMax > 5 && !npc.dontTakeDamage &&
-                        Vector2.Distance(npc.Center, Projectile.Center) < radius && Collision.CanHit(Projectile.Center, 1, 1, npc.Center, 1, 1))
+                    // 给范围内玩家加树妖祝福
+                    foreach(Player player in Main.player)
                     {
-                        npc.AddBuff(BuffID.DryadsWardDebuff, 30);
+                        if (player.active && !player.dead && Vector2.Distance(player.Center, Projectile.Center) < radius)
+                        {
+                            player.AddBuff(BuffID.DryadsWard, 30);
+                        }
+                    }
+
+                    // 给范围内敌人加树妖祸害
+                    for (int i = 0; i < Main.maxNPCs; i++)
+                    {
+                        NPC npc = Main.npc[i];
+                        if (npc.active && !npc.friendly && npc.lifeMax > 5 && !npc.dontTakeDamage &&
+                            Vector2.Distance(npc.Center, Projectile.Center) < radius && Collision.CanHit(Projectile.Center, 1, 1, npc.Center, 1, 1))
+                        {
+                            npc.AddBuff(BuffID.DryadsWardDebuff, 30);
+                        }
                     }
                 }
+                else
+                {
 
-                int dustIndex = Dust.NewDust(Projectile.position, Projectile.width, Projectile.height, DustID.DryadsWard, 0f, 0f);
-                Dust dust = Main.dust[dustIndex];
-                Random ran = new Random();
-                float rate = ran.Next(100) / 100.0f;
-                float velFactor = rate > 0.2 ? 0.2f : -0.6f;
-                dust.velocity = (Projectile.Center + CenterOffset - dust.position) * velFactor;
-                dust.noGravity = true;
-
+                    int dustIndex = Dust.NewDust(Projectile.position, Projectile.width, Projectile.height, DustID.DryadsWard, 0f, 0f);
+                    Dust dust = Main.dust[dustIndex];
+                    Random ran = new Random();
+                    float rate = ran.Next(100) / 100.0f;
+                    float velFactor = rate > 0.2 ? 0.2f : -0.6f;
+                    dust.velocity = (Projectile.Center + CenterOffset - dust.position) * velFactor;
+                    dust.noGravity = true;
+                    Main.NewText("dust triggerred");
+                }
             }
 
             // 持续生成环绕的叶子
             int leafRespawnInterval = LEAF_RESPAWN_INTERVAL;
-            if(owner.HasBuff(BUFF_ID))
-            {
-                leafRespawnInterval = (int)(leafRespawnInterval * ENHANCEMENT_FACTOR);
-            }
 
             if (LeafTimer >= leafRespawnInterval)
             {
-                SpawnOrbitingLeaves();
+                if(Projectile.owner == Main.myPlayer)
+                {
+                    SpawnOrbitingLeaves();
+                }
+                Projectile.netUpdate = true;
                 LeafTimer = 0;
             }
             LeafTimer++;
+
+            Projectile.ai[0] = (float)LeafTimer;
         }
 
         private void SpawnOrbitingLeaves()
@@ -181,6 +197,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         {
             // Projectile.velocity = Vector2.Zero;
             Projectile.velocity.X = 0f;
+            Projectile.netUpdate = true;
             return false;
         }
 

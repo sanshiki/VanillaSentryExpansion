@@ -18,8 +18,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 {
     public class HoneyCombSentry : ModProjectile
     {
-        private int shootTimer;
-
         private const int NORMAL_FRAME_SPEED = 20;
         private const int SHOOT_FRAME_SPEED = 5;
 
@@ -28,7 +26,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         private const int MAX_BEES_PER_SHOT = 6;
         private const int MIN_BEES_PER_SHOT = 3;
         private const float ENHANCEMENT_FACTOR = 0.75f;
-        private int BUFF_ID = -1;
 
         public static float Gravity = ModGlobal.SENTRY_GRAVITY;
         public static float MaxGravity = 20f;
@@ -55,8 +52,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.aiStyle = -1;
             Projectile.timeLeft = Projectile.SentryLifeTime;
             Projectile.DamageType = DamageClass.Summon;
-            
-            BUFF_ID = ModBuffID.SentryEnhancement;
+            Projectile.netImportant = true;
         }
 
         public override void OnSpawn(IEntitySource source)
@@ -66,6 +62,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 Dust d = Dust.NewDustDirect(Projectile.Center - Projectile.Size/2f, Projectile.width, Projectile.height, 150);
                 d.noGravity = true;
             }
+            
         }
 
         private bool CheckHiveBackpack(Player owner)
@@ -92,6 +89,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 Projectile.velocity.Y = MaxGravity;
             }
 
+            int shootTimer = (int)Projectile.ai[0];
+
             // Targeting
             NPC target = MinionAIHelper.SearchForTargets(
                     owner, 
@@ -104,10 +103,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             int shootInterval = hasHiveBackpack ? SHOOT_INTERVAL_2 : SHOOT_INTERVAL_1;
             if (target != null)
             {
-                // if(owner.HasBuff(BUFF_ID))
-                // {
-                //     shootInterval = (int)(shootInterval * ENHANCEMENT_FACTOR);
-                // }
 
                 if (shootTimer >= shootInterval)
                 {
@@ -134,15 +129,20 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                         // Main.NewText("random_seed: " + random_seed + " dir_offset: " + dir_offset);
                         Vector2 Velocity = (BaseVel * vel_offset).RotatedBy(dir + dir_offset);
 
-                        Projectile bee = Projectile.NewProjectileDirect(
-                            Projectile.GetSource_FromAI(),
-                            Projectile.Center,
-                            Velocity,
-                            ModProjectileID.HoneyCombSentryBullet,
-                            // ProjectileID.Bee,
-                            Projectile.damage,
-                            0,
-                            Projectile.owner);
+
+                        if(Projectile.owner == Main.myPlayer)
+                        {
+                            Projectile bee = Projectile.NewProjectileDirect(
+                                    Projectile.GetSource_FromAI(),
+                                    Projectile.Center,
+                                    Velocity,
+                                    ModProjectileID.HoneyCombSentryBullet,
+                                    // ProjectileID.Bee,
+                                    Projectile.damage,
+                                    0,
+                                    Projectile.owner);
+                        }
+                        Projectile.netUpdate = true;
 
                         // bee.DamageType = DamageClass.Summon;
                         // ProjectileID.Sets.SentryShot[bee.type] = true;
@@ -157,14 +157,18 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                         float random_seed = MinionAIHelper.RandomFloat(0f, 1f);
                         if(random_seed < 0.5f)
                         {
-                            Projectile bee = Projectile.NewProjectileDirect(
-                                Projectile.GetSource_FromAI(),
-                                Projectile.Center,
-                                BaseVel.RotatedBy(dir),
-                                ModProjectileID.HoneyCombSentryGiantBullet,
-                                Projectile.damage,
-                                0.5f,
-                                Projectile.owner);
+                            if(Projectile.owner == Main.myPlayer)
+                            {
+                                Projectile bee = Projectile.NewProjectileDirect(
+                                    Projectile.GetSource_FromAI(),
+                                    Projectile.Center,
+                                    BaseVel.RotatedBy(dir),
+                                    ModProjectileID.HoneyCombSentryGiantBullet,
+                                    Projectile.damage,
+                                    0.5f,
+                                    Projectile.owner);
+                            }
+                            Projectile.netUpdate = true;
 
                             // bee.DamageType = DamageClass.Summon;
                             // ProjectileID.Sets.SentryShot[bee.type] = true;
@@ -190,6 +194,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             {
                 shootTimer = shootInterval;
             }
+
+            Projectile.ai[0] = (float)shootTimer;
 
             // Animation
             // UpdateAnimation(target, shootTimer);
@@ -223,6 +229,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         {
             // Projectile.velocity = Vector2.Zero;
             Projectile.velocity.X = 0f;
+            Projectile.netUpdate = true;
             return false;
         }
 

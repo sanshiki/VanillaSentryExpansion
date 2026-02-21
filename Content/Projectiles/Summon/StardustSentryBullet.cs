@@ -27,12 +27,11 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Main.projFrames[Projectile.type] = FRAME_COUNT;
             ProjectileID.Sets.TrailCacheLength[Projectile.type] = 10;
             ProjectileID.Sets.TrailingMode[Projectile.type] = 0;
+            ProjectileID.Sets.SentryShot[Projectile.type] = true;
         }
 
         public override void SetDefaults()
         {
-            // Projectile.CloneDefaults(ProjectileID.StardustJellyfishSmall);
-
             Projectile.width = 34;
             Projectile.height = 90;
 
@@ -54,11 +53,12 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
             // try get target
             int TargetID = (int)Projectile.ai[0];
+            bool canHomein = Projectile.ai[1] == 0f;
             NPC target = null;
             if(TargetID >= 0 && TargetID < Main.maxNPCs)
             {
                 NPC npc = Main.npc[TargetID];
-                if (npc.active)
+                if (npc.active && npc.CanBeChasedBy(Projectile))
                 {
                     target = npc;
                 }
@@ -66,12 +66,15 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
             if (target != null && target.active && !target.dontTakeDamage && !target.immortal)
             {
-                if (Projectile.penetrate == MAX_PENETRATE && Projectile.Center.Distance(target.Center) > 80f)
+                if (Projectile.penetrate == MAX_PENETRATE && Projectile.Center.Distance(target.Center) > 80f && canHomein)
                 {
                     MinionAIHelper.HomeinToTarget(Projectile, target.Center, 50f, 10f);
                 }
                 else
+                {
+                    canHomein = false;
                     Projectile.velocity = Projectile.velocity.SafeNormalize(Vector2.Zero) * 50f;
+                }
             }
             else
                 Projectile.velocity = Projectile.velocity.SafeNormalize(Vector2.Zero) * 50f;
@@ -129,6 +132,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 Main.dust[num853].scale = 1.5f;
             }
             Projectile.alpha = 0;
+
+            Projectile.ai[1] = canHomein? 0 : 1;
         }
 
         public override bool PreDraw(ref Color lightColor)

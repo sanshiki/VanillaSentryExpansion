@@ -167,7 +167,10 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
         {
-            target.AddBuff(BuffID.Ichor, 3*60);
+            if(MinionAIHelper.IsServer())
+            {
+                target.AddBuff(BuffID.Ichor, 3*60);
+            }
         }
     }
 

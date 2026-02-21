@@ -16,17 +16,18 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 {
     public class BunnySentry : ModProjectile
     {
-        private int shootTimer = 4;
-
+        /* ----------------- constants ----------------- */
+        // frame speed constants
         private const int NORMAL_FRAME_SPEED = 20;
         private const int SHOOT_FRAME_SPEED = 5;
 
+        // shoot interval
         private const int SHOOT_INTERVAL = 35;
-        private const float ENHANCEMENT_FACTOR = 0.75f;
-        private int BUFF_ID = -1;
+        private const int INIT_SHOOT_CNT = 4;
 
-        public static float Gravity = ModGlobal.SENTRY_GRAVITY;
-        public static float MaxGravity = 20f;
+        // gravity constants
+        public const float Gravity = ModGlobal.SENTRY_GRAVITY;
+        public const float MaxGravity = 20f;
 
         public override string Texture => ModGlobal.MOD_TEXTURE_PATH + "Projectiles/BunnySentry";
 
@@ -49,7 +50,12 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.aiStyle = -1;
             Projectile.timeLeft = Projectile.SentryLifeTime;
             Projectile.DamageType = DamageClass.Summon;
-            BUFF_ID = ModBuffID.SentryEnhancement;
+            Projectile.netImportant = true;
+        }
+
+        public override void OnSpawn(IEntitySource source)
+        {
+            Projectile.ai[0] = (float)INIT_SHOOT_CNT;
         }
 
         public override void AI()
@@ -71,17 +77,14 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     true, 
                     null).TargetNPC;
 
+            int shootTimer = (int)Projectile.ai[0];
+
             // Animation
             UpdateAnimation(target, shootTimer);
 
             int shootInterval = SHOOT_INTERVAL;
             if (target != null)
             {
-                if(owner.HasBuff(BUFF_ID))
-                {
-                    shootInterval = (int)(shootInterval * ENHANCEMENT_FACTOR);
-                }
-
                 if (shootTimer >= shootInterval)
                 {
                     shootTimer = 0;
@@ -97,32 +100,33 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     direction.Y -= distance * 0.002f;
 
                     
+                    if (Projectile.owner == Main.myPlayer)
+                    {
+                        Projectile seed = Projectile.NewProjectileDirect(
+                            Projectile.GetSource_FromAI(),
+                            Projectile.Center + bulletOffset,
+                            direction,
+                            ModProjectileID.BunnySentryBullet,
+                            Projectile.damage,
+                            Projectile.knockBack,
+                            Projectile.owner);
+                    }
 
-                    Projectile seed = Projectile.NewProjectileDirect(
-                        Projectile.GetSource_FromAI(),
-                        Projectile.Center + bulletOffset,
-                        direction,
-                        ModProjectileID.BunnySentryBullet,
-                        Projectile.damage,
-                        Projectile.knockBack,
-                        Projectile.owner);
-
-                    // seed.DamageType = DamageClass.Summon;
-                    // ProjectileID.Sets.SentryShot[seed.type] = true;
-                    // Main.NewText("Damage: " + Projectile.damage + "Seed Damage: " + seed.damage);
 
                     shootTimer = 0; // Reset shoot animation
 
                     SoundStyle style = new SoundStyle("Terraria/Sounds/Item_11") with { Volume = .7f,  Pitch = .72f,  PitchVariance = .26f, };
                     SoundEngine.PlaySound(style, Projectile.Center);
+
+                    Projectile.netUpdate = true;
                 }
             }
 
-                shootTimer++;
-                if(shootTimer >= shootInterval)
-                    shootTimer = shootInterval;
-            
+            shootTimer++;
+            if(shootTimer >= shootInterval)
+                shootTimer = shootInterval;
 
+            Projectile.ai[0] = (float)shootTimer;
         }
 
         private void UpdateAnimation(NPC target, int shootTimer)
@@ -154,6 +158,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         {
             // Projectile.velocity = Vector2.Zero;
             Projectile.velocity.X = 0f;
+            Projectile.netUpdate = true;
             return false;
         }
 

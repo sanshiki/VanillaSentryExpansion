@@ -6,6 +6,7 @@ using Terraria.DataStructures;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.Audio;
+using System.IO;
 
 using Microsoft.Xna.Framework.Graphics;
 using SummonerExpansionMod.Content.Buffs.Summon;
@@ -16,28 +17,33 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 {
     public class AntlionSentry : ModProjectile
     {
-        private int shootTimer;
-
-        private bool isShooting = false;
-        private bool isOnSand = false;
-
+        /* ----------------- constants ----------------- */
+        // frame speed constants
         private const int NORMAL_FRAME_SPEED = 15;
         private const int SHOOT_FRAME_SPEED = 5;
 
+        // shoot interval
         private const int SHOOT_INTERVAL = 120;
         private const int SHOOT_INTERVAL_FAST = 90;
         private const float ENHANCEMENT_FACTOR = 0.75f;
-        private int BUFF_ID = -1;
-        private int shootInterval = SHOOT_INTERVAL;
+        private const int INIT_SHOOT_CNT = 4;
 
-        public static float Gravity = ModGlobal.SENTRY_GRAVITY;
-        public static float MaxGravity = 20f;
+        // gravity constants
+        public const float Gravity = ModGlobal.SENTRY_GRAVITY;
+        public const float MaxGravity = 20f;
+
+        // bullet constants
         private const float BULLET_SPEED_Y = 25f;
         private const float BULLET_GRAVITY = 1.0f;
         private const float MAX_LEGAL_HEIGHT = BULLET_SPEED_Y * BULLET_SPEED_Y / (2 * BULLET_GRAVITY)*0.8f;
         private const int FRAME_COUNT = 9;
 
         public override string Texture => "SummonerExpansionMod/Assets/Textures/Projectiles/AntlionSentry";
+
+        /* ----------------- variables ----------------- */
+        private bool isShooting = false;
+        private bool isOnSand = false;
+        private int shootInterval = SHOOT_INTERVAL;
 
         public override void SetStaticDefaults()
         {
@@ -58,8 +64,12 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.aiStyle = -1;
             Projectile.timeLeft = Projectile.SentryLifeTime;
             Projectile.DamageType = DamageClass.Summon;
-            
-            BUFF_ID = ModBuffID.SentryEnhancement;
+            Projectile.netImportant = true;
+        }
+
+        public override void OnSpawn(IEntitySource source)
+        {
+            Projectile.ai[0] = (float)INIT_SHOOT_CNT;
         }
 
         public override void AI()
@@ -73,6 +83,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 Projectile.velocity.Y = MaxGravity;
             }
 
+            int shootTimer = (int)Projectile.ai[0];
+
             // Targeting
             NPC target = MinionAIHelper.SearchForTargets(
                 owner, 
@@ -84,11 +96,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             if (target != null)
             {
                 shootInterval = isOnSand ? SHOOT_INTERVAL_FAST : SHOOT_INTERVAL;
-
-                // if(owner.HasBuff(BUFF_ID))
-                // {
-                //     shootInterval = (int)(shootInterval * ENHANCEMENT_FACTOR);
-                // }
 
 
                 if (shootTimer >= shootInterval)
@@ -130,22 +137,25 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                         vx = -max_vx;
                     }
 
-                    Projectile proj = Projectile.NewProjectileDirect(
-                        Projectile.GetSource_FromAI(),
-                        ShootCenter,
-                        new Vector2(vx, -vy),
-                        ModProjectileID.AntlionSentryBullet,
-                        Projectile.damage,
-                        Projectile.knockBack,
-                        Projectile.owner);
-
-                    ProjectileID.Sets.SentryShot[proj.type] = true;
+                    if(Projectile.owner == Main.myPlayer)
+                    {
+                        Projectile proj = Projectile.NewProjectileDirect(
+                            Projectile.GetSource_FromAI(),
+                            ShootCenter,
+                            new Vector2(vx, -vy),
+                            ModProjectileID.AntlionSentryBullet,
+                            Projectile.damage,
+                            Projectile.knockBack,
+                            Projectile.owner);
+                    }
 
                     shootTimer = 0; // Reset shoot animation
                     isOnSand = false;
 
 
                     SoundEngine.PlaySound(SoundID.Item5, Projectile.position);
+
+                    Projectile.netUpdate = true;
                 }
             }
 
@@ -155,6 +165,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
             // Animation
             UpdateAnimation(target, shootTimer);
+
+            Projectile.ai[0] = (float)shootTimer;
         }
 
         private void UpdateAnimation(NPC target, int shootTimer)
@@ -166,6 +178,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 {
                     isShooting = true;
                     Projectile.frameCounter = 0;
+                    Projectile.netUpdate = true;
                 }
             }
 
@@ -179,6 +192,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     {
                         isShooting = false;
                         Projectile.frame = 0;
+                        Projectile.netUpdate = true;
                     }
                 }
             }
@@ -194,6 +208,20 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     }
                 }
             }
+        }
+
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            writer.Write(isShooting);
+            writer.Write(isOnSand);
+            writer.Write(shootInterval);
+        }
+
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            isShooting = reader.ReadBoolean();
+            isOnSand = reader.ReadBoolean();
+            shootInterval = reader.ReadInt32();
         }
 
         public override bool OnTileCollide(Vector2 oldVelocity)
@@ -226,6 +254,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             // set velocity to 0
             // Projectile.velocity = Vector2.Zero;
             Projectile.velocity.X = 0f;
+
+            Projectile.netUpdate = true;
 
             return false;
         }

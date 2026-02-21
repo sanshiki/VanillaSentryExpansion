@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ID;
@@ -22,13 +23,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         private const int SHOOT_STATE = 2;
         private const int RELEASE_STATE = 3;
 
-        private int shootTimer = 0;
-        private int shootAnimationTimer = -1;
-        private int PressorState = IDLE_STATE;
-
-        private bool isShooting = false;
-        private bool isOnSand = false;
-
         private const int SHOOT_INTERVAL = 120;
         private const int PRESS_TIME = 5;
         private const int SHOOT_TIME = 6;
@@ -36,7 +30,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         private const int NORMAL_FRAME_SPEED = 20;
         private const int SHOOT_FRAME_SPEED = 2;
         private const int MAX_BULLET_NUM = 3;
-        private int shootInterval = SHOOT_INTERVAL;
 
         public static float Gravity = ModGlobal.SENTRY_GRAVITY;
         public static float MaxGravity = 20f;
@@ -44,7 +37,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         private const int FRAME_COUNT = 13;
 
         private float direction = 0f;
-        private Vector2 lastTargetPos = Vector2.Zero;
+        private float lastTargetPosX = 0f;
+        private float lastTargetPosY = 0f;
 
         public override string Texture => "SummonerExpansionMod/Assets/Textures/Projectiles/IchorPressorSentry";
 
@@ -67,11 +61,22 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.aiStyle = -1;
             Projectile.timeLeft = Projectile.SentryLifeTime;
             Projectile.DamageType = DamageClass.Summon;
-            
+            Projectile.netImportant = true;
+        }
+
+        public override void OnSpawn(IEntitySource source)
+        {
+            Projectile.ai[0] = 0f;
+            Projectile.ai[1] = -1f;
+            Projectile.ai[2] = IDLE_STATE;
         }
 
         public override void AI()
         {
+            int shootTimer = (int)Projectile.ai[0];
+            int shootAnimationTimer = (int)Projectile.ai[1];
+            int PressorState = (int)Projectile.ai[2];
+
             Player owner = Main.player[Projectile.owner];
             
             // apply gravity
@@ -94,8 +99,11 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             if(target != null)
             {
                 Vector2 PredictedPos = MinionAIHelper.PredictTargetPosition(Projectile.Center + BulletOffset, target.Center, target.velocity, BULLET_SPEED, 60, 3);
-                lastTargetPos = PredictedPos;
+                lastTargetPosX = PredictedPos.X;
+                lastTargetPosY = PredictedPos.Y;
             }
+
+            Vector2 lastTargetPos = new Vector2(lastTargetPosX, lastTargetPosY);
             
             direction = (lastTargetPos - Projectile.Center - BulletOffset).ToRotation();
 
@@ -132,20 +140,18 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     }
                     if(shootAnimationTimer % (SHOOT_TIME * SHOOT_FRAME_SPEED / MAX_BULLET_NUM) == 0)
                     {
-                        Projectile bullet = Projectile.NewProjectileDirect(
-                            Projectile.GetSource_FromThis(),
-                            Projectile.Center + BulletOffset,
-                            direction.ToRotationVector2() * BULLET_SPEED,
-                            ModProjectileID.IchorPressorSentryBullet,
-                            // ProjectileID.GoldenShowerFriendly,
-                            Projectile.damage,
-                            Projectile.knockBack,
-                            Projectile.owner);
-                        // bullet.usesLocalNPCImmunity = true;
-                        // bullet.localNPCHitCooldown = 10;
-                        // ProjectileID.Sets.SentryShot[bullet.type] = true;
-                        // Projectile.usesIDStaticNPCImmunity = true;
-                        // Projectile.idStaticNPCHitCooldown = 20;
+                        if(Projectile.owner == Main.myPlayer)
+                        {
+                            Projectile.NewProjectileDirect(
+                                Projectile.GetSource_FromThis(),
+                                Projectile.Center + BulletOffset,
+                                direction.ToRotationVector2() * BULLET_SPEED,
+                                ModProjectileID.IchorPressorSentryBullet,
+                                Projectile.damage,
+                                Projectile.knockBack,
+                                Projectile.owner);
+                        }
+                        Projectile.netUpdate = true;
                     }
                     if(shootAnimationTimer >= SHOOT_TIME * SHOOT_FRAME_SPEED)
                     {
@@ -171,16 +177,21 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             // Main.NewText("PressorState: " + PressorState);
 
             shootTimer++;
-            if(shootTimer >= shootInterval)
-                shootTimer = shootInterval;
+            if(shootTimer >= SHOOT_INTERVAL)
+                shootTimer = SHOOT_INTERVAL;
 
             // Animation
             UpdateAnimation(target);
+
+            Projectile.ai[0] = (float)shootTimer;
+            Projectile.ai[1] = (float)shootAnimationTimer;
+            Projectile.ai[2] = (float)PressorState;
         }
 
         private void UpdateAnimation(NPC target)
         {
             Projectile.frameCounter++;
+            int PressorState = (int)Projectile.ai[2];
             switch (PressorState)
             {
                 case IDLE_STATE:
@@ -218,9 +229,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     Projectile.frame = (int)MathHelper.Clamp(Projectile.frame, 7, 11);
                 } break;
             }
-
-            // Main.NewText("frame: " + Projectile.frame + " frameCounter: " + Projectile.frameCounter);
-
         }
 
         public override bool PreDraw(ref Color lightColor)
@@ -266,9 +274,9 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         public override bool OnTileCollide(Vector2 oldVelocity)
         {
-            // set velocity to 0
-            // Projectile.velocity = Vector2.Zero;
             Projectile.velocity.X = 0f;
+            
+            Projectile.netUpdate = true;
 
             return false;
         }
@@ -284,6 +292,19 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 			return false;
 		}
 
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            writer.Write(direction);
+            writer.Write(lastTargetPosX);
+            writer.Write(lastTargetPosY);
+        }
+
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            direction = reader.ReadSingle();
+            lastTargetPosX = reader.ReadSingle();
+            lastTargetPosY = reader.ReadSingle();
+        }
 
     }
 }

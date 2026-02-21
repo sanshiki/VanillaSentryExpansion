@@ -1126,5 +1126,18 @@ namespace SummonerExpansionMod.ModUtils
 			return false;
 		}
 		#endregion
+
+		#region Server Methods
+		public static void SetProjectileNetUpdate(Projectile projectile)
+		{
+			if (Main.netMode != NetmodeID.MultiplayerClient)
+				projectile.netUpdate = true;
+		}
+
+		public static bool IsServer()
+		{
+			return Main.netMode != NetmodeID.MultiplayerClient;
+		}
+		#endregion
 	}
 } 

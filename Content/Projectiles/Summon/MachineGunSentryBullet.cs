@@ -41,9 +41,16 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.hostile = false;
         }
 
+        public override void OnSpawn(IEntitySource source)
+        {
+            Projectile.ai[0] = 5f;  // SelfDamage
+            Projectile.ai[1] = 10f; // SelfArmorPenetration
+        }
+
         public override void AI()
         {
             Player player = Main.player[Projectile.owner];
+            int SelfDamage = (int)Projectile.ai[0];
             if (MinionAIHelper.DoHarmToSelf(player, Projectile, SelfDamage, Projectile.knockBack))
             {
                 Projectile.Kill(); // 避免每帧重复触发
@@ -57,16 +64,9 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         public override string TexturePath => "Terraria/Images/Projectile_" + ProjectileID.BulletHighVelocity;
 
-        public int SelfDamage = 50;
-
-        public int SelfArmorPenetration = 5;
-
-        private bool HurtFlag = false;
-
         private bool DamageDebug = false;
 
         private const float DAMAGE_DECAY_FACTOR = 0.8f;
-        private int hitCount = 0;
 
         public override void SetDefaults()
         {
@@ -77,19 +77,21 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.penetrate = 3;
         }
 
+        public override void OnSpawn(IEntitySource source)
+        {
+            Projectile.ai[0] = 0f;  // hitCount
+            Projectile.ai[1] = 50f;  // SelfDamage
+            Projectile.ai[2] = 5f; // SelfArmorPenetration
+        }
+
 
         public override void AI()
         {
-            if(HurtFlag)
-            {
-                return;
-            }
-
             Player player = Main.player[Projectile.owner];
+            int SelfDamage = (int)Projectile.ai[1];
             if (MinionAIHelper.DoHarmToSelf(player, Projectile, SelfDamage, Projectile.knockBack))
             {
                 Projectile.penetrate--;
-                HurtFlag = true;
             }
         }
 
@@ -98,11 +100,15 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Player player = Main.player[Projectile.owner];
             modifiers.HitDirectionOverride = (target.Center - player.Center).X > 0 ? 1 : -1;
 
+            int hitCount = (int)Projectile.ai[0];
+
             float multiplier = (float)Math.Pow(DAMAGE_DECAY_FACTOR, hitCount);
 
             modifiers.FinalDamage *= multiplier;
 
             hitCount++;
+
+            Projectile.ai[0] = (float)hitCount;
         }
     }
 }

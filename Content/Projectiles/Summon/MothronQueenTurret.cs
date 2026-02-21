@@ -16,26 +16,18 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 {
     public class MothronQueenTurret : ModProjectile
     {
-        private int shootTimer;
-
-        private bool isShooting = false;
-        private bool isOnSand = false;
-
         private const int NORMAL_FRAME_SPEED = 15;
         private const int SHOOT_FRAME_SPEED = 5;
 
         private const int SHOOT_INTERVAL = 120;
         private const int SHOOT_INTERVAL_FAST = 90;
         private const float ENHANCEMENT_FACTOR = 0.75f;
-        private int BUFF_ID = -1;
+
         private int shootInterval = SHOOT_INTERVAL;
-        private Vector2 direction = new Vector2(0, -1);
         private const float COMPENSATE_ANGLE = 15f * ModGlobal.DEG_TO_RAD_FLOAT;
 
-        private Dictionary<int, Projectile> eggDict = new Dictionary<int, Projectile>();
-
-        public static float Gravity = ModGlobal.SENTRY_GRAVITY;
-        public static float MaxGravity = 20f;
+        public const float Gravity = ModGlobal.SENTRY_GRAVITY;
+        public const float MaxGravity = 20f;
         private const float BULLET_SPEED = 25f;
         private const float BULLET_GRAVITY = 1.0f;
         private const int FRAME_COUNT = 9;
@@ -65,12 +57,20 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.aiStyle = -1;
             Projectile.timeLeft = Projectile.SentryLifeTime;
             Projectile.DamageType = DamageClass.Summon;
-            
-            BUFF_ID = ModBuffID.SentryEnhancement;
+            Projectile.netImportant = true;
+        }
+
+        public override void OnSpawn(IEntitySource source)
+        {
+            Projectile.ai[0] = 0; // shootTimer
+            Projectile.ai[1] = -ModGlobal.PI_FLOAT/2f; // direction
         }
 
         public override void AI()
         {
+            int shootTimer = (int)Projectile.ai[0];
+            float direction = (float)Projectile.ai[1];
+            int shootInterval = SHOOT_INTERVAL;
             Player owner = Main.player[Projectile.owner];
             
             // apply gravity
@@ -92,14 +92,14 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
             if (target != null)
             {
-                shootInterval = isOnSand ? SHOOT_INTERVAL_FAST : SHOOT_INTERVAL;
+                Vector2 dir_vec = (target.Center - Projectile.Center).SafeNormalize(Vector2.Zero);
+                direction = dir_vec.ToRotation();
 
-                direction = (target.Center - Projectile.Center).SafeNormalize(Vector2.Zero);
-
-                if(direction.ToRotation() <= -ModGlobal.PI_FLOAT/2f - COMPENSATE_ANGLE || direction.ToRotation() >= -ModGlobal.PI_FLOAT/2f + COMPENSATE_ANGLE)
+                if(direction <= -ModGlobal.PI_FLOAT/2f - COMPENSATE_ANGLE || direction >= -ModGlobal.PI_FLOAT/2f + COMPENSATE_ANGLE)
                 {
-                    direction = direction.RotatedBy(COMPENSATE_ANGLE * (direction.X > 0f ? -1f : 1f));
+                    direction = direction + COMPENSATE_ANGLE * (dir_vec.X > 0f ? -1f : 1f);
                 }
+                dir_vec = direction.ToRotationVector2();
 
                 if (shootTimer >= shootInterval)
                 {
@@ -114,36 +114,15 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     Projectile egg = Projectile.NewProjectileDirect(
                         Projectile.GetSource_FromAI(),
                         ShootCenter,
-                        direction * BULLET_SPEED,
+                        dir_vec * BULLET_SPEED,
                         ModProjectileID.MothronQueenTurretBullet,
                         Projectile.damage,
-                        0,
+                        Projectile.knockBack,
                         Projectile.owner);
-
-                    if(!eggDict.ContainsKey(egg.whoAmI))
-                    {
-                        eggDict.Add(egg.whoAmI, egg);
-                    }
                     
                     shootTimer = 0; // Reset shoot animation
 
                     SoundEngine.PlaySound(SoundID.Item5, Projectile.position);
-                }
-
-                // update egg queue
-                foreach(Projectile egg in eggDict.Values)
-                {
-                    if((target.Center - egg.Center).Length() < 200f)
-                    {
-                        // Vector2 BabySpiderDir = (target.Center - egg.Center).SafeNormalize(Vector2.Zero);
-                        // egg.velocity = BabySpiderDir * egg.velocity.Length();
-                        eggDict.Remove(egg.whoAmI);
-                        egg.Kill();
-                    }
-                    if(egg.timeLeft <= 0 || !egg.active)
-                    {
-                        eggDict.Remove(egg.whoAmI);
-                    }
                 }
             }
 
@@ -151,6 +130,9 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             shootTimer++;
             if(shootTimer >= shootInterval)
                 shootTimer = shootInterval;
+
+            Projectile.ai[0] = shootTimer;
+            Projectile.ai[1] = direction;
 
         }
 
@@ -177,6 +159,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         public override bool PreDraw(ref Color lightColor)
         {
+            float direction = (float)Projectile.ai[1];
             // draw base
             Texture2D baseTexture = ModContent.Request<Texture2D>(BASE_TEXTURE_PATH).Value;
             int width = baseTexture.Width;
@@ -191,7 +174,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Rectangle gunRect = new Rectangle(0, 0, width, height);
             Vector2 gunWorldPos = MinionAIHelper.ConvertToWorldPos(Projectile, new Vector2(0, 0));
             Vector2 gunOrigin = new Vector2(40, 36);
-            MinionAIHelper.DrawPart(Projectile, gunTexture, gunWorldPos, gunRect, lightColor, direction.ToRotation() + ModGlobal.PI_FLOAT/2f, gunOrigin);
+            MinionAIHelper.DrawPart(Projectile, gunTexture, gunWorldPos, gunRect, lightColor, direction + ModGlobal.PI_FLOAT/2f, gunOrigin);
 
             // draw holder
             Texture2D holderTexture = ModContent.Request<Texture2D>(HOLDER_TEXTURE_PATH).Value;

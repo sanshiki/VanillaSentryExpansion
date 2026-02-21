@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using System;
+using System.IO;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.DataStructures;
@@ -26,6 +27,31 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         public float Seed;
         public int Anchor_ID;
         public bool AnchorInited;
+
+        public void SendExtraAI(BinaryWriter writer)
+        {
+            writer.Write(ID);
+            writer.Write(TileCollide);
+            writer.Write(IsRecalled);
+            writer.Write(TargetPos.X);
+            writer.Write(TargetPos.Y);
+            writer.Write(Seed);
+            writer.Write(Anchor_ID);
+            writer.Write(AnchorInited);
+        }
+
+        public void ReceiveExtraAI(BinaryReader reader)
+        {
+            ID = reader.ReadInt32();
+            TileCollide = reader.ReadBoolean();
+            IsRecalled = reader.ReadBoolean();
+            float TargetPosX = reader.ReadSingle();
+            float TargetPosY = reader.ReadSingle();
+            TargetPos = new Vector2(TargetPosX, TargetPosY);
+            Seed = reader.ReadSingle();
+            Anchor_ID = reader.ReadInt32();
+            AnchorInited = reader.ReadBoolean();
+        }
     }
 
     public class FlagProjectile : ModProjectile
@@ -56,6 +82,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         // planting and recalling sentries
         protected virtual int PLANT_EXIST_DURATION => 60*60*10; // 10 min
         protected virtual int ONGROUND_CNT_THRESHOLD => 10;
+        protected virtual int ONGROUND_PLAYER_RECALL_THRESHOLD => 45;
         protected virtual float GRAVITY => 0.8f;
         protected virtual float MAX_FALL_SPEED => 16f;
         protected virtual float SENTRY_RECALL_SPEED => 50f;
@@ -126,36 +153,71 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         protected virtual float DAMAGE_DECAY_FACTOR => 0.8f;
 
         /* ------------------------- Public Attributes ------------------------- */
-        public float WaveDirection = 1;
-        public int State = WAVE_STATE;
+        // public int State = WAVE_STATE;
         public bool SwitchFlag = false;
-        public int OnGroundCnt = 0;
-        public int PoleLength = MIN_POLE_PENGTH;    // real pole length, can be modified in realtime
-        public int TimeLeftRaise = 60;
-        public float AttackSpeed = 1f;
+        public int PoleLength = MIN_POLE_PENGTH;    // real pole length, can be modified in realtime (low update freq)
+        public int TimeLeftRaise = 60*10;  // (low update freq)
+        public float AttackSpeed = 1f;  // aborted
 
         /* ------------------------- Private Variables ------------------------- */
-        protected int FixedDirection = 1;   // record the fixed direction of the pole when raised
-        protected float AimAngle = 0f;   // record the aim angle of the pole when waving
-        protected bool Initialized = false;     // init flag
-        protected bool SentryRecallInitialized = false;     // sentry recall init flag
-        protected int RaiseTime = 0;     // raise time counter
-        protected int RecallTime = 0;     // recall time counter
-        protected float ItemRot = -2.05f;
-        protected float RotAcc = 0f;
-        protected float RotSpd = 0f;
-        protected bool HasPlayedOnGroundSound = false;
-        protected bool HasPlayedBuffSound = false;
-        protected int hitCount = 0;
+        // protected int FixedDirection = 1;   // record the fixed direction of the pole when raised (low update freq)
+        protected int State = WAVE_STATE;
+        protected bool Initialized = false;     // init flag (low update freq)
+
+        protected float AimAngle = 0f;   // record the aim angle of the pole when waving (low update freq)
+        protected float ItemRot = -2.05f; // (high update freq local)
+        protected float RotAcc = 0f; // (high update freq local)
+        protected float RotSpd = 0f; // (high update freq local)
+        protected float FlagClothAmplitude = 0f; // (high update freq local)
+        protected float FlagClothWaveSpeed = 0f; // (high update freq local)
+
+        protected bool HasPlayedOnGroundSound = false;      // played onground sound flag(low update freq)
+        protected bool HasPlayedBuffSound = false;      // played buff-adding sound flag(low update freq)
+        protected bool UseFastAnimation = false;    // if to use fast animation(higher freq)(low update freq)
+
         protected List<SentryRecallInfo> SentryRecallInfos = new List<SentryRecallInfo>();
         protected Vector2 STICK_OFFSET = new Vector2(0f, -MIN_POLE_PENGTH / 2f + 20f);
         protected List<float> StickOffsetList = new List<float>();
-        protected float FlagClothAmplitude = 0f;
-        protected float FlagClothWaveSpeed = 0f;
-        protected bool UseFastAnimation = false;
-        protected bool HasSentryLockInSlot = false;
         protected Vector2 CursorAssistedPlantPos = Vector2.Zero;
-        protected bool CursorAssisting = false;
+
+        /* ------------------------- Data Packer ------------------------- */
+
+        protected NonUniformFloatIntPacker timerPacker = new NonUniformFloatIntPacker(
+            127, // OnGroundCnt, 7bit
+            127, // RaiseTime, 7bit
+            15,  // RecallTime, 4bit
+            1, // WaveDirection, 1bit
+            7, // State, 3bit
+            255, // HitCount, 8bit
+            1 // FixedDirection, 1bit
+        );
+
+        protected const int OnGroundCntBit = 0;
+        protected const int RaiseTimeBit = 1;
+        protected const int RecallTimeBit = 2;
+        protected const int WaveDirectionBit = 3;
+        protected const int StateBit = 4;
+        protected const int HitCountBit = 5;
+        protected const int FixedDirectionBit = 6;
+
+        protected NonUniformFloatIntPacker flagPacker = new NonUniformFloatIntPacker(
+            1,   // InitializeFlag
+            1,  // SentryRecallInitializeFlag
+            1,   // HasSentryLockInSlotFlag
+            1,  // CursorAssistingFlag
+            1, // SwitchFlag
+            1, // ControlUseTileFlag
+            1  // ControlUseItemFlag
+        );
+
+        protected const int InitializeFlagBit = 0;
+        protected const int SentryRecallInitializeFlagBit = 1;
+        protected const int HasSentryLockInSlotFlagBit = 2;
+        protected const int CursorAssistingFlagBit = 3;
+        protected const int SwitchFlagBit = 4;
+        protected const int ControlUseTileFlagBit = 5;
+        protected const int ControlUseItemFlagBit = 6;
+        
 
 
         /* -------------------------- Setting Defaults -------------------------- */
@@ -180,6 +242,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.usesLocalNPCImmunity = true;
             Projectile.aiStyle = 0;
             Projectile.DamageType = DamageClass.SummonMeleeSpeed;
+            Projectile.netImportant = true;
 
             if (TAIL_DYNAMIC_DEBUG)
             {
@@ -208,6 +271,14 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Player player = Main.player[Projectile.owner];
             AttackSpeed = player.GetAttackSpeed(DamageClass.Melee);  
 
+            if(MinionAIHelper.IsServer())
+            {
+                foreach(var proj in Main.projectile)
+                {
+                    if(proj.active && proj.owner == Projectile.owner && proj.type == Projectile.type && proj.whoAmI != Projectile.whoAmI) proj.Kill();
+                }
+            }
+
             // Main.NewText("itemAnimationMax: " + player.itemAnimationMax +
             //              " AttackSpeed: " + AttackSpeed +
             //              "time left:" + TIME_LEFT_WAVE / AttackSpeed);
@@ -227,38 +298,62 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.height = PoleLength;
             AttackSpeed = player.GetAttackSpeed(DamageClass.Melee);            
 
+            // update state
+            State = GetCurrentState();
+            Initialized = flagPacker.Get(Projectile.ai[1], InitializeFlagBit)!=0;
+            SwitchFlag = flagPacker.Get(Projectile.ai[1], SwitchFlagBit)!=0;
+
+            // sync player mouse click
+            if(Projectile.owner == Main.myPlayer)
+            {
+                Projectile.ai[1] = flagPacker.Set(Projectile.ai[1], ControlUseTileFlagBit, player.controlUseTile?1:0);
+                Projectile.ai[1] = flagPacker.Set(Projectile.ai[1], ControlUseItemFlagBit, player.controlUseItem?1:0);
+            }
+
             // basic flag state machine
             switch (State)
             {
                 case WAVE_STATE:
                 {
-                    WaveAI(player);
+                    WaveAI(player, ref State, ref Initialized);
                 } break;
                 case RAISE_STATE:
                 {
-                    RaiseAI(player);
+                    RaiseAI(player, ref State, ref Initialized);
                 } break;
                 case PLANT_STATE:
                 {
-                    PlantAI(player);
+                    PlantAI(player, ref State, ref Initialized);
                 } break;
                 case RECALL_STATE:
                 {
-                    RecallAI(player);
+                    RecallAI(player, ref State, ref Initialized);
                 } break;
             }
+
+            // long timestamp = DateTime.UtcNow.Ticks;
+            // Main.NewText($"[{timestamp}][Client {Main.myPlayer}] State={State} timeLeft={Projectile.timeLeft} itemTime={player.itemTime} itemAnimation={player.itemAnimation}");
+            // if (Main.netMode == NetmodeID.Server)
+            // {
+            //     Console.WriteLine($"[{timestamp}][SERVER] active={Projectile.active} timeLeft={Projectile.timeLeft} itemTime={player.itemTime} itemAnimation={player.itemAnimation}");
+            // }
 
             DamageGrassAlongBlade(player);
 
             CreateDustEffect(player);
+
+            Projectile.ai[0] = timerPacker.Set(Projectile.ai[0],StateBit,State);
+            Projectile.ai[1] = flagPacker.Set(Projectile.ai[1],InitializeFlagBit,Initialized?1:0);
+            Projectile.ai[1] = flagPacker.Set(Projectile.ai[1],SwitchFlagBit,SwitchFlag?1:0);
         }
 
-        protected void WaveAI(Player player)
+        protected void WaveAI(Player player, ref int State, ref bool Initialized)
         {
             if (!Initialized)
             {
                 // initialize
-                FixedDirection = player.direction;
+                int FixedDirection = player.direction == 1 ? 1 : 0;
+                Projectile.ai[0] = timerPacker.Set(Projectile.ai[0],FixedDirectionBit,FixedDirection);
                 // get mouse dir
                 Vector2 aimDir = (Main.MouseWorld - player.Center).SafeNormalize(Vector2.UnitX);
                 AimAngle = aimDir.ToRotation() + ModGlobal.PI_FLOAT / 2f;
@@ -271,9 +366,13 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
                 // Projectile.timeLeft = (int)(TIME_LEFT_WAVE / AttackSpeed);
                 Projectile.timeLeft = (int)player.itemAnimationMax;
+
+                Projectile.netUpdate = true;
             }
 
-            float dir = WaveDirection/*  * FixedDirection */;
+            int WaveDirection = timerPacker.Get(Projectile.ai[0],WaveDirectionBit);
+            WaveDirection = WaveDirection == 1 ? 1 : -1;
+            float dir = (float)WaveDirection/*  * FixedDirection */;
 
             float RotDisplacement = ROT_DISPLACEMENT * 1.12f/* DynamicParamManager.QuickGet("RotDisplacement", 100f, 0f, 200f).value / 100f */;
             
@@ -341,17 +440,30 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         }
 
-        protected void RaiseAI(Player player)
+        protected void RaiseAI(Player player, ref int State, ref bool Initialized)
         {
+            bool controlUseTile = flagPacker.Get(Projectile.ai[1],ControlUseTileFlagBit)!=0;
+            long timestamp = DateTime.UtcNow.Ticks;
+            // Main.NewText("["+timestamp+"]"+" player.altFunctionUse:"+player.altFunctionUse+" player.ControlUseItem:"+player.controlUseItem+" player.ControlUseTile:"+controlUseTile);
+            if(!controlUseTile)
+            {
+                Projectile.Kill();
+                Projectile.netUpdate = true;
+                return;
+            }
+            int RaiseTime = timerPacker.Get(Projectile.ai[0],RaiseTimeBit);
             if (!Initialized)
             {
                 // initialize
-                Projectile.timeLeft = TimeLeftRaise;
-                FixedDirection = player.direction;
+                Projectile.timeLeft = 60*10;
+                int FixedDirection = player.direction == 1 ? 1 : 0;
+                Projectile.ai[0] = timerPacker.Set(Projectile.ai[0],FixedDirectionBit,FixedDirection);
                 Projectile.friendly = false;
                 // Main.NewText("RaiseAI:"+Projectile.identity);
                 Initialized = true;
+                Projectile.netUpdate = true;
             }
+            Projectile.timeLeft = 60*10;
             float RaiseMaxHeight = 16f * 4f + HANDHELD_POINT_OFFSET / 2f;
             float RaiseMaxSpeed = 2f * RaiseMaxHeight / (float)TimeLeftRaise;
             float RaiseAcc = RaiseMaxSpeed / (float)TimeLeftRaise * 2f;
@@ -365,7 +477,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             {
                 RaiseHeight = RaiseMaxHeight - RaiseAcc * (float)(TimeLeftRaise - RaiseTime) * (float)(TimeLeftRaise - RaiseTime) / 2f;
             }
-            RaiseTime++;
+            RaiseTime = RaiseTime >= 127 ? 127 : RaiseTime+1;
  
             if(RaiseTime >= TimeLeftRaise * RAISE_BUFF_TIME_COEFF)
             {
@@ -391,34 +503,50 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             // Vector2 StickOffset = new Vector2(STICK_OFFSET.X * FixedDirection, STICK_OFFSET.Y);
             Vector2 StickOffset = new Vector2(0f, -PoleLength/2f+40f);
             Projectile.Center = CenterMapping(player.MountedCenter, StickOffset, 0) + new Vector2(0, RaiseMaxHeight/2f-RaiseHeight);
-            Projectile.spriteDirection = FixedDirection;
+            Projectile.spriteDirection = timerPacker.Get(Projectile.ai[0],FixedDirectionBit) == 1 ? 1 : -1;
             // Projectile.velocity = player.velocity;
 
-            // calculate cursor assisted plant pos
-            float dist = (float)Math.Min((Main.MouseWorld - player.Center).Length(), CURSOR_ASSISTED_PLANT_DISTANCE);
-            CursorAssistedPlantPos = player.Center + (Main.MouseWorld - player.Center).SafeNormalize(Vector2.UnitX) * dist + new Vector2(0, -PoleLength/2f);
+            if(RaiseTime >= TimeLeftRaise * 0.88f)
+            {
+                SwitchFlag = true;
+            }
             
             if(SwitchFlag)
             {
                 State = PLANT_STATE;
                 SwitchFlag = false;
                 Initialized = false;
+                Projectile.netUpdate = true;
+                // Main.NewText("switch from raise to plant,timeleft:"+Projectile.timeLeft);
             }
+
+            Projectile.ai[0] = timerPacker.Set(Projectile.ai[0], RaiseTimeBit, RaiseTime);
         }
 
-        protected void PlantAI(Player player)
+        protected void PlantAI(Player player, ref int State, ref bool Initialized)
         {
             int BuffTimePlanted = ENHANCE_BUFF_DURATION_PLANTED == -1 ? ENHANCE_BUFF_DURATION : ENHANCE_BUFF_DURATION_PLANTED;
+            int OnGroundCnt = timerPacker.Get(Projectile.ai[0], OnGroundCntBit);
+            bool CursorAssisting = flagPacker.Get(Projectile.ai[1], CursorAssistingFlagBit)!=0;
             if (!Initialized)
             {
                 // initialize
                 Projectile.timeLeft = PLANT_EXIST_DURATION;
-                FixedDirection = player.direction;
+                int FixedDirection = player.direction == 1 ? 1 : 0;
+                Projectile.ai[0] = timerPacker.Set(Projectile.ai[0],FixedDirectionBit,FixedDirection);
                 Projectile.tileCollide = true;
                 Projectile.friendly = false;
 
                 // reset buff
-                player.AddBuff(ENHANCE_BUFF_ID, BuffTimePlanted);
+                if(MinionAIHelper.IsServer())
+                    player.AddBuff(ENHANCE_BUFF_ID, BuffTimePlanted);
+
+                // calculate cursor assisted plant pos
+                if(Projectile.owner == Main.myPlayer)
+                {
+                    float dist = (float)Math.Min((Main.MouseWorld - player.Center).Length(), CURSOR_ASSISTED_PLANT_DISTANCE);
+                    CursorAssistedPlantPos = player.Center + (Main.MouseWorld - player.Center).SafeNormalize(Vector2.UnitX) * dist + new Vector2(0, -PoleLength/2f);
+                }
 
                 // Main.NewText("PlantAI:"+Projectile.identity);
                 Initialized = true;
@@ -426,12 +554,21 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 SentryAnchorPlayer anchorPlayer = player.GetModPlayer<SentryAnchorPlayer>();
                 if(anchorPlayer.HasLockedSentryAnchor)
                 {
-                    HasSentryLockInSlot = true;
+                    // HasSentryLockInSlot = true;
+                    Projectile.ai[1] = flagPacker.Set(Projectile.ai[1],HasSentryLockInSlotFlagBit,1);
                 }
 
-                if (USE_CURSOR_ASSISTED_PLANT) CursorAssisting = true;
+                if (USE_CURSOR_ASSISTED_PLANT)
+                {
+                    CursorAssisting = true;
+                    Projectile.ai[1] = flagPacker.Set(Projectile.ai[1], CursorAssistingFlagBit, CursorAssisting?1:0);
+                }
 
                 HasPlayedOnGroundSound = false;
+
+                Projectile.netUpdate = true;
+
+                // Main.NewText("Plant init");
             }
 
             // apply cursor assist
@@ -443,7 +580,11 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 float factor = CURSOR_ASSIST_P_FACTOR * process;
                 Projectile.Center += dist.SafeNormalize(Vector2.UnitX) * factor;
                 // Dust.QuickDust(CursorAssistedPlantPos, Color.Red);
-                if(dist.Length() <= 5f) CursorAssisting = false;
+                if(dist.Length() <= 5f)
+                {
+                    CursorAssisting = false;
+                    Projectile.ai[1] = flagPacker.Set(Projectile.ai[1], CursorAssistingFlagBit, CursorAssisting?1:0);
+                }
                 else return;
             }
             else Projectile.tileCollide = true;
@@ -461,8 +602,10 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
             if (OnGroundCnt >= ONGROUND_CNT_THRESHOLD)
             {
+                bool HasSentryLockInSlot = flagPacker.Get(Projectile.ai[1],HasSentryLockInSlotFlagBit)!=0;
                 if(!HasSentryLockInSlot)
                 {
+                    bool SentryRecallInitialized = flagPacker.Get(Projectile.ai[1],SentryRecallInitializeFlagBit)!=0;
                     if (!SentryRecallInitialized)
                     {
                         // find affected sentries
@@ -505,10 +648,12 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                         }
 
                         // reset buff
-                        player.AddBuff(ENHANCE_BUFF_ID, BuffTimePlanted);
+                        if(MinionAIHelper.IsServer())
+                            player.AddBuff(ENHANCE_BUFF_ID, BuffTimePlanted);
 
                         SentryRecallInitialized = true;
                     }
+                    Projectile.ai[1] = flagPacker.Set(Projectile.ai[1],SentryRecallInitializeFlagBit,SentryRecallInitialized?1:0);
                 
                     foreach (var info in SentryRecallInfos)
                     {
@@ -541,6 +686,18 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 }
             }
 
+            // sync player mouse click
+            bool useItem = flagPacker.Get(Projectile.ai[1], ControlUseItemFlagBit)!=0;
+            bool useTile = flagPacker.Get(Projectile.ai[1], ControlUseTileFlagBit)!=0;
+            if(!(useItem && player.controlUseItem) || !(useTile && player.controlUseTile)) Projectile.netUpdate = true;
+
+            if(OnGroundCnt >= ONGROUND_PLAYER_RECALL_THRESHOLD)
+            {
+                // click right or left to recall
+                SwitchFlag = useItem || useTile;
+                // Main.NewText("useItem:"+useItem+"useTile:"+useTile);
+            }
+
             // if the planted flag is too far away from player, kill self
             Vector2 ToOwnerDist = player.Center - Projectile.Center;
             if (ToOwnerDist.Length() >= 4000f)
@@ -551,7 +708,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             // auto re-add buff
             if (AUTO_READD_BUFF_ON_PLANT/*  && !player.HasBuff(ENHANCE_BUFF_ID) */)
             {
-                player.AddBuff(ENHANCE_BUFF_ID, BuffTimePlanted);
+                if(MinionAIHelper.IsServer())
+                    player.AddBuff(ENHANCE_BUFF_ID, BuffTimePlanted);
             }
 
             if (SwitchFlag)
@@ -566,6 +724,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     Projectile sentry = Main.projectile[info.ID];
                     sentry.velocity /= 2f;
                 }
+
+                Projectile.netUpdate = true;
             }
         }
         
@@ -575,8 +735,9 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             throw new NotImplementedException("CustomSentryRecall is not implemented");
         }
 
-        protected void RecallAI(Player player)
+        protected void RecallAI(Player player, ref int State, ref bool Initialized)
         {
+            int RecallTime = timerPacker.Get(Projectile.ai[0],RecallTimeBit);
             if (!Initialized)
             {
                 // initialize
@@ -586,6 +747,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 Projectile.localNPCHitCooldown = Projectile.timeLeft;
                 Projectile.usesLocalNPCImmunity = true;
                 Projectile.ownerHitCheck = false;
+                Projectile.netUpdate = true;
 
                 Initialized = true;
             }
@@ -602,6 +764,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 RecallTime = 0;
                 SoundEngine.PlaySound(SoundID.Item1, Projectile.Center);
             }
+
+            Projectile.ai[0] = timerPacker.Set(Projectile.ai[0],RecallTimeBit,RecallTime);
 
             if(RecallDist.Length() <= 100f)
             {
@@ -665,6 +829,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         protected void PreDrawFlagCloth(ref Color lightColor, Vector2 ClothCenter)
         {
+            // decode
             Player player = Main.player[Projectile.owner];
             if(State == WAVE_STATE || State == RECALL_STATE)
             {
@@ -1028,7 +1193,9 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         public override bool OnTileCollide(Vector2 oldVelocity)
         {
-            OnGroundCnt++;
+            int OnGroundCnt = timerPacker.Get(Projectile.ai[0], OnGroundCntBit);
+            OnGroundCnt = OnGroundCnt >= 127 ? 127 : OnGroundCnt+1;
+            Projectile.ai[0] = timerPacker.Set(Projectile.ai[0], OnGroundCntBit, OnGroundCnt);
             Projectile.velocity.X = 0f;
             return false;
         }
@@ -1051,6 +1218,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 // Main.NewText("Sentry "+entry.Key+" tileCollide: "+entry.Value);
             }
             SentryRecallInfos.Clear();
+
+            // Main.NewText("projectile kill triggered, timeLeft:"+timeLeft);
         }
 
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
@@ -1185,7 +1354,10 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             // player.HasMinionAttackTargetNPC = true;
 
             int ImbueDeBuffID = MinionAIHelper.GetImbueDebuff(player);
-            if (ImbueDeBuffID != -1) target.AddBuff(ImbueDeBuffID, 3 * 60);
+            if (ImbueDeBuffID != -1)
+            {
+                target.AddBuff(ImbueDeBuffID, 3 * 60);
+            }
             if(MinionAIHelper.IsPartyImbue(player))
             {
                 Projectile.NewProjectile(new EntitySource_Misc("WeaponEnchantment_Confetti"), target.Center.X, target.Center.Y, target.velocity.X, target.velocity.Y, 289, 0, 0f, player.whoAmI);
@@ -1197,13 +1369,56 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Player player = Main.player[Projectile.owner];
             modifiers.HitDirectionOverride = (target.Center - player.Center).X > 0 ? 1 : -1;
 
+            int hitCount = timerPacker.Get(Projectile.ai[0],HitCountBit);
+
             float multiplier = (float)Math.Pow(DAMAGE_DECAY_FACTOR, hitCount);
 
             modifiers.FinalDamage *= multiplier;
 
             hitCount++;
+            Projectile.ai[0] = timerPacker.Set(Projectile.ai[0],HitCountBit,hitCount);
         }
 
+        public int GetCurrentState()
+        {
+            return timerPacker.Get(Projectile.ai[0], StateBit);
+        }
+
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            writer.Write(PoleLength);
+            writer.Write(TimeLeftRaise);
+            writer.Write(AimAngle);
+
+            writer.Write(SentryRecallInfos.Count);
+            foreach(var info in SentryRecallInfos)
+            {
+                info.SendExtraAI(writer);
+            }
+
+            writer.Write(CursorAssistedPlantPos.X);
+            writer.Write(CursorAssistedPlantPos.Y);
+        }
+
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            PoleLength = reader.ReadInt32();
+            TimeLeftRaise = reader.ReadInt32();
+            AimAngle = reader.ReadSingle();
+
+            SentryRecallInfos.Clear();
+            int SentryInfoLen = reader.ReadInt32();
+            for(int i=0;i < SentryInfoLen; i++)
+            {
+                SentryRecallInfo info = new SentryRecallInfo();
+                info.ReceiveExtraAI(reader);
+                SentryRecallInfos.Add(info);
+            }
+
+            float CursorAssistedPlantPosX = reader.ReadSingle();
+            float CursorAssistedPlantPosY = reader.ReadSingle();
+            CursorAssistedPlantPos = new Vector2(CursorAssistedPlantPosX, CursorAssistedPlantPosY);
+        }
 
     }
 }

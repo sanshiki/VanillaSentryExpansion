@@ -36,14 +36,9 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.usesLocalNPCImmunity = true;
             Projectile.localNPCHitCooldown = 60;
             Projectile.penetrate = 3;
+            Projectile.tileCollide = true;
         }
 
-        public override bool OnTileCollide(Vector2 oldVelocity)
-        {
-            Projectile.Kill();
-            return false;
-            // return true;
-        }
 
         public override void AI()
         {

@@ -16,28 +16,27 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 {
     public class DarkMagicTower : ModProjectile
     {
+        /* -------------------- constants -------------------- */
         // animation
         private const int FRAME_COUNT = 6;
-        private int FRAME_SPEED = 10;
-        // private int fireCooldown = 30;
+        private const int FRAME_SPEED = 10;
         private const int FIRE_INTERVAL = 40;
-        private int fireTimer = 0;
-        private long floatCnt = 0;
-
+        
+        // bullet constants
         private const float REAL_BULLET_SPEED = 15f;
         private const float PRED_BULLET_SPEED = 15f;
         private const float DEACCELERATION = 0.5f;
         private const bool USE_PREDICTION = true;
+
+        // teleport constants
         private const int TELEPORT_COOLDOWN = 60*5;
         private const int TELEPORT_TRIGGER_DISTANCE = 1500;
         private const int TELEPORT_MAX_DISTANCE = 3000;
-        private int teleportTimer = 0;
-
-        private const float ENHANCEMENT_FACTOR = 0.75f;
-        private int BUFF_ID = -1;
-
+        
         public override string Texture => ModGlobal.MOD_TEXTURE_PATH + "Projectiles/DarkMagicTower";
 
+
+        /* -------------------- variables -------------------- */
         public override void SetStaticDefaults()
         {
             ProjectileID.Sets.MinionSacrificable[Projectile.type] = true;
@@ -57,12 +56,15 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.timeLeft = Projectile.SentryLifeTime;
             Projectile.sentry = true;
             Projectile.netImportant = true;
-            
-            BUFF_ID = ModBuffID.SentryEnhancement;
         }
 
         public override void AI()
         {
+
+            int fireTimer = (int)Projectile.ai[0];
+            int teleportTimer = (int)Projectile.ai[1];
+            int floatCnt = (int)Projectile.localAI[0];
+
             // Float in the air
             Vector2 vel = Projectile.velocity;
             Vector2 vel_dir = vel.SafeNormalize(Vector2.Zero);
@@ -92,13 +94,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             teleportTimer += teleportTimer >= TELEPORT_COOLDOWN ? 0 : 1;
 
             int fireInterval = FIRE_INTERVAL;
-            // if(owner.HasBuff(BUFF_ID))
-            // {
-            //     fireInterval = (int)(fireInterval * ENHANCEMENT_FACTOR);
-            // }
 
-            // find target and fire, as well as cooldown control
-            // NPC target = FindTarget();
             NPC target = MinionAIHelper.SearchForTargets(
                 owner, 
                 Projectile, 
@@ -116,6 +112,10 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 fireTimer = fireInterval;
 
             UpdateAnimation(target);
+            
+            Projectile.ai[0] = (float)fireTimer;
+            Projectile.ai[1] = (float)teleportTimer;
+            Projectile.localAI[0] = (float)floatCnt;
         }
 
         private void FireAt(NPC target)
@@ -132,17 +132,18 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
             Vector2 ShootOffset = new Vector2(0, -8f);
 
-            Projectile proj = Projectile.NewProjectileDirect(
-                Projectile.GetSource_FromAI(),
-                Projectile.Center + ShootOffset,
-                direction * REAL_BULLET_SPEED,
-                // ProjectileID.WaterStream, // Reusing vanilla projectile
-                ModProjectileID.DarkMagicTowerBullet,
-                // ProjectileID.SapphireBolt,
-                Projectile.damage,
-                Projectile.knockBack,
-                Projectile.owner
-            );
+            if(Projectile.owner == Main.myPlayer)
+            {
+                Projectile proj = Projectile.NewProjectileDirect(
+                    Projectile.GetSource_FromAI(),
+                    Projectile.Center + ShootOffset,
+                    direction * REAL_BULLET_SPEED,
+                    ModProjectileID.DarkMagicTowerBullet,
+                    Projectile.damage,
+                    Projectile.knockBack,
+                    Projectile.owner
+                );
+            }
 
             SoundEngine.PlaySound(SoundID.Item43, Projectile.Center);
         }

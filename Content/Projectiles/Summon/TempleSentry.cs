@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ID;
@@ -16,8 +17,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 {
     public class TempleSentry : ModProjectile
     {
-        private int shootTimer = 50;
-
         private const bool USE_PREDICTION = true;
         private const int PRED_BULLET_SPEED = 40;
         private const int REAL_BULLET_SPEED = 40;
@@ -25,7 +24,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         private const int EYEBEAM_STATE = 0;
         private const int HEATRAY_STATE = 1;
         private const int REST_STATE = 2;
-        private int State = EYEBEAM_STATE;
+        
 
         private const int EYEBEAM_MIN_SHOOT_INTERVAL = 60;
         private const int EYEBEAM_MAX_SHOOT_INTERVAL = 10;
@@ -34,22 +33,20 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         private const int HEATRAY_MAX_CHARGE_NUM = 20;
         private const float HEAYRAY_DAMAGE_FACTOR = 0.75f;
         private const int REST_TIME = 120;
-        private const float ENHANCEMENT_FACTOR = 0.75f;
-        private int BUFF_ID = -1;
-        private int chargeCnt = 0;
-        private int timeoutCnt = 0;
         private const int TIMEOUT_MAX = 60*4;
-        private int shootInterval = EYEBEAM_MIN_SHOOT_INTERVAL;
-        private bool hasTarget = false;
-
-        public static float Gravity = ModGlobal.SENTRY_GRAVITY;
-        public static float MaxGravity = 20f;
+        
+        public const float Gravity = ModGlobal.SENTRY_GRAVITY;
+        public const float MaxGravity = 20f;
 
         public override string Texture => ModGlobal.MOD_TEXTURE_PATH + "Projectiles/TempleSentry";
 
         private const string HEATRAY_TEXTURE = ModGlobal.MOD_TEXTURE_PATH + "Projectiles/TempleSentryHeatRay";
 
         private const string CORE_TEXTURE = ModGlobal.MOD_TEXTURE_PATH + "Projectiles/TempleSentryCore";
+
+        private int State = EYEBEAM_STATE;
+        private int shootInterval = EYEBEAM_MIN_SHOOT_INTERVAL;
+        private bool hasTarget = false;
 
         private int CoreLightCnt = 30;
 
@@ -72,11 +69,21 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.aiStyle = -1;
             Projectile.timeLeft = Projectile.SentryLifeTime;
             Projectile.DamageType = DamageClass.Summon;
-            BUFF_ID = ModBuffID.SentryEnhancement;
+            Projectile.netImportant = true;
+        }
+
+        public override void OnSpawn(IEntitySource source)
+        {
+            Projectile.ai[0] = 50; // shootTimer
+            Projectile.ai[1] = 0; // chargeCnt
+            Projectile.ai[2] = 0; // timeoutCnt
         }
 
         public override void AI()
         {
+            int shootTimer = (int)Projectile.ai[0];
+            int chargeCnt = (int)Projectile.ai[1];
+            int timeoutCnt = (int)Projectile.ai[2];
             Player owner = Main.player[Projectile.owner];
             
             // apply gravity
@@ -149,6 +156,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                         default:
                             break;
                     }
+
+                    Projectile.netUpdate = true;
                 }
             }
             else
@@ -161,6 +170,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     chargeCnt = 0;
                     timeoutCnt = 0;
                     shootTimer = EYEBEAM_MIN_SHOOT_INTERVAL - 10;
+                    Projectile.netUpdate = true;
                 }
             }
             
@@ -168,12 +178,17 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             shootTimer++;
             if(shootTimer >= shootInterval)
                 shootTimer = shootInterval;
+
+            Projectile.ai[0] = (float)shootTimer;
+            Projectile.ai[1] = (float)chargeCnt;
+            Projectile.ai[2] = (float)timeoutCnt;
             
 
         }
 
         private void UpdateAnimation(NPC target, int shootTimer)
         {
+            int chargeCnt = (int)Projectile.ai[1];
             switch (State)
             {
                 case HEATRAY_STATE:
@@ -231,16 +246,18 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             direction.Normalize();
             direction *= REAL_BULLET_SPEED; // Bullet speed
 
-
-            Projectile beam = Projectile.NewProjectileDirect(
-                Projectile.GetSource_FromAI(),
-                ShootCenter,
-                direction,
-                ModProjectileID.TempleSentryEyeBeamBullet,
-                // ProjectileID.EyeBeam,
-                Projectile.damage,
-                Projectile.knockBack,
-                Projectile.owner);
+            if(Projectile.owner == Main.myPlayer)
+            {
+                Projectile beam = Projectile.NewProjectileDirect(
+                    Projectile.GetSource_FromAI(),
+                    ShootCenter,
+                    direction,
+                    ModProjectileID.TempleSentryEyeBeamBullet,
+                    // ProjectileID.EyeBeam,
+                    Projectile.damage,
+                    Projectile.knockBack,
+                    Projectile.owner);
+            }
 
             // beam.DamageType = DamageClass.Summon;
             // beam.friendly = true;
@@ -260,21 +277,18 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             direction.Normalize();
             direction *= (target.Center - ShootCenter).Length() / 50f; // Bullet speed
 
-            Projectile ray = Projectile.NewProjectileDirect(
-                Projectile.GetSource_FromAI(),
-                ShootCenter,
-                direction,
-                // ProjectileID.HeatRay,
-                ModProjectileID.TempleSentryHeatRay,
-                (int)(Projectile.damage * HEAYRAY_DAMAGE_FACTOR),
-                Projectile.knockBack,
-                Projectile.owner);
-
-            ray.DamageType = DamageClass.Summon;
-            ray.penetrate = 3;
-            ray.usesLocalNPCImmunity = true;
-            ray.localNPCHitCooldown = 20;
-            ProjectileID.Sets.SentryShot[ray.type] = true;
+            if(Projectile.owner == Main.myPlayer)
+            {
+                Projectile ray = Projectile.NewProjectileDirect(
+                    Projectile.GetSource_FromAI(),
+                    ShootCenter,
+                    direction,
+                    // ProjectileID.HeatRay,
+                    ModProjectileID.TempleSentryHeatRay,
+                    (int)(Projectile.damage * HEAYRAY_DAMAGE_FACTOR),
+                    Projectile.knockBack,
+                    Projectile.owner);
+            }
 
             SoundEngine.PlaySound(SoundID.Item12, Projectile.position);
         }
@@ -283,6 +297,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         {
             // Projectile.velocity = Vector2.Zero;
             Projectile.velocity.X = 0f;
+            Projectile.netUpdate = true;
             return false;
         }
 
@@ -299,6 +314,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         public override bool PreDraw(ref Color lightColor)
         {
+            int chargeCnt = (int)Projectile.ai[1];
             // draw sentry
             Texture2D texture = ModContent.Request<Texture2D>(Texture).Value;
             int width = texture.Width;
@@ -339,6 +355,19 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             return false;
         }
 
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            writer.Write(State);
+            writer.Write(shootInterval);
+            writer.Write(hasTarget);
+        }
+
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            State = reader.ReadInt32();
+            shootInterval = reader.ReadInt32();
+            hasTarget = reader.ReadBoolean();
+        }
 
     }
 }

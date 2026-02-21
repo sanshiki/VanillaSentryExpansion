@@ -27,10 +27,11 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         public override string Texture => ModGlobal.MOD_TEXTURE_PATH + "Projectiles/Hellpod";
 
+        
+        private const int SelfDamage = 100;
+
         public bool DoHarmToOwner = true;
         private bool DamageDebug = false;
-        private int SelfDamage = 100;
-        private bool HurtFlag = false;
 
 
         public override void SetDefaults()

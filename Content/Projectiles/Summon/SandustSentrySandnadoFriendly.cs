@@ -16,7 +16,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
     {
         public override string Texture => ModGlobal.VANILLA_PROJECTILE_TEXTURE_PATH + ProjectileID.SandnadoFriendly;
 
-        Projectile vanillaSandnado;
+        Projectile vanillaSandnado = null;
 
         public override void SetStaticDefaults()
         {
@@ -52,15 +52,21 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         public override void OnSpawn(IEntitySource source)
         {
             // genereate a vanilla sandnado only for visual effect
-            vanillaSandnado = Projectile.NewProjectileDirect(Projectile.GetSource_FromAI(), Projectile.Center, Vector2.Zero, ProjectileID.SandnadoFriendly, 0, 0, Projectile.owner);
-            vanillaSandnado.timeLeft = 3*60;
-            vanillaSandnado.friendly = false;
-            vanillaSandnado.hostile = false;
+            if(Projectile.owner == Main.myPlayer)
+            {
+                vanillaSandnado = Projectile.NewProjectileDirect(Projectile.GetSource_FromAI(), Projectile.Center, Vector2.Zero, ProjectileID.SandnadoFriendly, 0, 0, Projectile.owner);
+                vanillaSandnado.timeLeft = 3*60;
+                vanillaSandnado.friendly = false;
+                vanillaSandnado.hostile = false;
+            }
         }
 
         public override void Kill(int timeLeft)
         {
-            vanillaSandnado.Kill();
+            if(vanillaSandnado != null)
+            {
+                vanillaSandnado.Kill();
+            }
         }
         
     }

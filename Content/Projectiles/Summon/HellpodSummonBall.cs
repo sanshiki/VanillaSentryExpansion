@@ -16,9 +16,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 {
     public class HellpodSummonBall : ModProjectile
     {
-        // public entry
-        public int SummonTargetID;
-
         // animation
         private const int FRAME_COUNT = 2;
         private const float BOUNCE_DECAY = 0.5f;
@@ -30,14 +27,16 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         private const int HELLPOD_DAMAGE = 100;
         private const float HELLPOD_KNOCKBACK = 10f;
 
-        // private variables
-        private bool SignalEnable = false;
-        private bool SignalSpawned = false;
-        private bool HellpodSpawned = false;
-        private int SignalTimer = 0;
+        private NonUniformFloatIntPacker extraPacker = new NonUniformFloatIntPacker(
+            2, // SignalEnable
+            2, // SignalSpawned
+            2 // HellpodSpawned
+        );
 
-        private Projectile SignalProjectile = null;
-        private Projectile HellpodProjectile = null;
+        // private variables
+
+        private int SignalProjectileId = 0;
+        private int HellpodProjectileId = 0;
 
         public override string Texture => ModGlobal.MOD_TEXTURE_PATH + "Projectiles/HellpodSummonBall";
 
@@ -50,33 +49,46 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         {
             Projectile.width = 14;
             Projectile.height = 14;
-            Projectile.friendly = false;
+            Projectile.friendly = true;
             Projectile.hostile = false;
             Projectile.tileCollide = true;
             Projectile.timeLeft = 600;
+            Projectile.netImportant = true;
             // Projectile.sentry = true;
         }
 
         public override void AI()
         {
+            // decode
+            int SignalTimer = (int)Projectile.ai[0];
+            int[] decode_values = extraPacker.Decode(Projectile.ai[1]);
+            bool SignalEnable = decode_values[0] != 0;
+            bool SignalSpawned = decode_values[1] != 0;
+            bool HellpodSpawned = decode_values[2] != 0;
+            int SummonTargetID = (int)Projectile.ai[2];
+
+
             MinionAIHelper.ApplyGravity(Projectile);
             
-
             if(SignalEnable)
             {
                 if(!SignalSpawned)
                 {
-                    SignalProjectile = Projectile.NewProjectileDirect(
-                        Projectile.GetSource_FromThis(),
-                        Projectile.Center + new Vector2(0, -SIGNAL_HEIGHT/2f),
-                        Vector2.Zero,
-                        ModContent.ProjectileType<HellpodSummonSignal>(),
-                        0,
-                        0,
-                        Projectile.owner
-                    );
+                    if(Projectile.owner == Main.myPlayer)
+                    {
+                        SignalProjectileId = Projectile.NewProjectile(
+                            Projectile.GetSource_FromThis(),
+                            Projectile.Center + new Vector2(0, -SIGNAL_HEIGHT/2f),
+                            Vector2.Zero,
+                            ModContent.ProjectileType<HellpodSummonSignal>(),
+                            0,
+                            0,
+                            Projectile.owner
+                        );
+                    }
                     SoundEngine.PlaySound(ModSounds.HellpodSignal_1, Projectile.Center);
                     SignalSpawned = true;
+                    Projectile.netUpdate = true;
                 }
                 Projectile.velocity = Vector2.Zero;
                 
@@ -86,18 +98,23 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 {
                     if(!HellpodSpawned)
                     {
-                        HellpodProjectile = Projectile.NewProjectileDirect(
-                            Projectile.GetSource_FromThis(),
-                            Projectile.Center + new Vector2(0, -HELLPOD_SUMMON_HEIGHT),
-                            new Vector2(0, 10f),
-                            ModContent.ProjectileType<Hellpod>(),
-                            HELLPOD_DAMAGE,
-                            HELLPOD_KNOCKBACK,
-                            Projectile.owner
-                        );
+                        if(Projectile.owner == Main.myPlayer)
+                        {
+                            HellpodProjectileId = Projectile.NewProjectile(
+                                Projectile.GetSource_FromThis(),
+                                Projectile.Center + new Vector2(0, -HELLPOD_SUMMON_HEIGHT),
+                                new Vector2(0, 10f),
+                                ModContent.ProjectileType<Hellpod>(),
+                                HELLPOD_DAMAGE,
+                                HELLPOD_KNOCKBACK,
+                                Projectile.owner
+                            );
+                        }
                         SoundEngine.PlaySound(ModSounds.HellpodSignal_2_1, Projectile.Center);
                         HellpodSpawned = true;
+                        Projectile.netUpdate = true;
                     }
+                    Projectile HellpodProjectile = Main.projectile[HellpodProjectileId];
                     Vector2 Ball2Hellpod = HellpodProjectile.Center - Projectile.Center;
                     // hellpod is arrived
                     if(Ball2Hellpod.Length() < 10f || Ball2Hellpod.Y > 0)
@@ -136,16 +153,20 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
                         // create sentry
                         Vector2 SpawnOffset = new Vector2(0, 25f-4f);
-                        Projectile.NewProjectileDirect(
-                            Projectile.GetSource_FromThis(),
-                            Projectile.Center - SpawnOffset,
-                            Vector2.Zero,
-                            SummonTargetID,
-                            Projectile.damage,
-                            Projectile.knockBack,
-                            0,
-                            Projectile.owner
-                        );
+                        if(Projectile.owner == Main.myPlayer)
+                        {
+                            Projectile.NewProjectileDirect(
+                                Projectile.GetSource_FromThis(),
+                                Projectile.Center - SpawnOffset,
+                                Vector2.Zero,
+                                SummonTargetID,
+                                Projectile.damage,
+                                Projectile.knockBack,
+                                Projectile.owner
+                                
+                            );
+                        }
+                        Projectile.netUpdate = true;
                         // Main.NewText("sentry created: " + SummonTargetID);
 
                         Player player = Main.player[Projectile.owner];
@@ -182,14 +203,15 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             }
             // Main.NewText("SignalEnable: " + SignalEnable + " SignalTimer: " + SignalTimer);
 
-            UpdateAnimation();
+            UpdateAnimation(SignalEnable);
 
-            // SignalEnable = false;
+            Projectile.ai[0] = (float)SignalTimer;
+            Projectile.ai[1] = extraPacker.Encode(SignalEnable?1:0,SignalSpawned?1:0,HellpodSpawned?1:0);
         }
 
         public override bool OnTileCollide(Vector2 oldVelocity)
         {
-            SignalEnable = false;
+            Projectile.ai[1] = extraPacker.Set(Projectile.ai[1], 0, 0);
             if (Projectile.velocity.X != oldVelocity.X && Math.Abs(oldVelocity.X) > 0.1f)
             {
                 Projectile.velocity.X = -oldVelocity.X * BOUNCE_DECAY;
@@ -198,7 +220,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             {
                 if (oldVelocity.Y > 0f)
                 {
-                    SignalEnable = true;
+                    Projectile.ai[1] = extraPacker.Set(Projectile.ai[1], 0, 1);
                     // Projectile.velocity = Vector2.Zero;
                     Projectile.velocity.X = 0f;
                 }
@@ -207,6 +229,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     Projectile.velocity.Y = -oldVelocity.Y * BOUNCE_DECAY;
                 }
             }
+            Projectile.netUpdate = true;
             
             return false;
         }
@@ -217,7 +240,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             return true;
         }
 
-        private void UpdateAnimation()
+        private void UpdateAnimation(bool SignalEnable)
         {
             if(SignalEnable)
             {
@@ -233,14 +256,18 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         public void SetSummonTarget(int targetID)
         {
-            SummonTargetID = targetID;
+            Projectile.ai[2] = targetID;
             // Main.NewText("summon target: " + SummonTargetID);
         }
 
         public override void Kill(int timeLeft)
         {
-            if(SignalProjectile != null) SignalProjectile.Kill();
-            if(HellpodProjectile != null) HellpodProjectile.Kill();
+            Projectile SignalProjectile = Main.projectile[SignalProjectileId];
+            Projectile HellpodProjectile = Main.projectile[HellpodProjectileId];
+            if(SignalProjectile != null && SignalProjectile.type == ModContent.ProjectileType<HellpodSummonSignal>()) SignalProjectile.Kill();
+            if(HellpodProjectile != null && HellpodProjectile.type == ModContent.ProjectileType<Hellpod>()) HellpodProjectile.Kill();
+            SignalProjectile.netUpdate = true;
+            HellpodProjectile.netUpdate = true;
         }
     }
 }

@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ID;
@@ -14,13 +15,21 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 {
     public class CursedMagicTowerBulletNPC : ModNPC
     {
-        private float MAX_SPEED = 20f;
+        private const float MAX_SPEED = 20f;
         private const float INERTIA = 20f;
         private const int TIME_LEFT = 60*5;
-        private int timeLeftCnt = 0;
-        private bool HitByOwner = false;
-        private int HitDamage = 0;
+
         public override string Texture => ModGlobal.VANILLA_NPC_TEXTURE_PATH + NPCID.CursedSkull;
+
+        public float damage = 0f;
+        public float knockBack = 0f;
+        public int targetId = 0;
+        public int ownerId = 0;
+        
+        private float MouseWroldPosX = 0f;
+        private float MouseWroldPosY = 0f;
+        private bool Dying = false;
+
         public override void SetStaticDefaults()
         {
             Main.npcFrameCount[NPC.type] = 3;
@@ -32,44 +41,27 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             NPC.width = 26;
             NPC.height = 28;
             NPC.friendly = false;
-            NPC.lifeMax = 999999;
+            NPC.lifeMax = 1;
             NPC.defense = 0;
             NPC.damage = 0;
-            NPC.immortal = true;
             NPC.noGravity = true;
             NPC.noTileCollide = true;
             NPC.aiStyle = -1;
             NPC.dontTakeDamageFromHostiles = true;
-            // NPC.alpha = 255;
         }
 
         public override void AI()
         {
-            timeLeftCnt++;
+            int timeLeftCnt = (int)NPC.ai[0];
             if(timeLeftCnt >= TIME_LEFT)
             {
-                NPC.life = 0;
-                // Main.NewText("[" + DateTime.UtcNow.Ticks + "] CursedMagicTowerBulletNPC: AI checkpoint 1");
-                NPC.checkDead();
+                Dying = true;
+                NPC.netUpdate = true;
             }
-
-            // Main.NewText("[" + DateTime.UtcNow.Ticks + "] CursedMagicTowerBulletNPC: AI");
-
-            // generate dust
-            // 27 29 41 42 45 54 59 62 65 71 86 88 109 113 164 173
-            // int BlueDustIDIdx = (int)DynamicParamManager.Get("DustIDIdx").value;
-            // int BlueDustID = 29;
-            // // int BlueDustID = DustIDs[BlueDustIDIdx];
-            // Dust BlueDust = Dust.NewDustDirect(NPC.Center - NPC.Size/2f, NPC.width, NPC.height, BlueDustID, NPC.velocity.X, NPC.velocity.Y);
-            // BlueDust.noGravity = true;
-            // BlueDust.scale = MinionAIHelper.RandomFloat(2.6f, 3.2f);
-            // BlueDust.fadeIn = 1.4f;
+            timeLeftCnt++;
             
-            int OwnerID = NPC.target;
-            // Main.NewText("[" + DateTime.UtcNow.Ticks + "] CursedMagicTowerBulletNPC: OwnerID: " + OwnerID);
-
-            Player owner = Main.player[OwnerID];
-            NPC ownerTarget = Main.npc[(int)NPC.ai[2]];
+            Player owner = Main.player[ownerId];
+            NPC ownerTarget = Main.npc[targetId];
             if(ownerTarget != null && owner != null)
             {
                 float factor = 0.8f;
@@ -85,12 +77,21 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             }
             else
             {
-                NPC.life = 0;
-                // Main.NewText("[" + DateTime.UtcNow.Ticks + "] CursedMagicTowerBulletNPC: AI checkpoint 3");
-                NPC.checkDead();
+                Dying = true;
+                NPC.netUpdate = true;
             }
 
             UpdateAnimation();
+
+            if(Dying) NPC.netUpdate = true;
+
+            if(Dying && MinionAIHelper.IsServer())
+            {
+                NPC.StrikeInstantKill();
+                NPC.checkDead();
+            }
+
+            NPC.ai[0] = timeLeftCnt;
         }
 
         private void UpdateAnimation()
@@ -195,7 +196,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         public override bool? CanBeHitByProjectile(Projectile projectile)
         {
             // 只允许玩家的鞭子触发
-            if (projectile.owner == NPC.target &&
+            if (projectile.owner == ownerId &&
                 projectile.DamageType == DamageClass.SummonMeleeSpeed)
             {
                 return true;
@@ -212,72 +213,111 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             // modifiers.SetMaxDamage(0);
         }
 
-        public override void OnHitByProjectile(Projectile projectile, NPC.HitInfo hit, int damageDone)
-        {
-            if (projectile.owner < 255 &&
-                projectile.owner == NPC.target &&
-                hit.DamageType == DamageClass.SummonMeleeSpeed)
-            {
-                NPC.life = 0;
-                HitByOwner = true;
-                HitDamage = (int)(damageDone * 0.8f);
-                // Player owner = Main.player[NPC.target];
-                // if(owner != null && NPC.ai[2] >= 0 && Main.npc[(int)NPC.ai[2]].active)
-                // {
-                //     owner.MinionAttackTargetNPC = (int)NPC.ai[2];
-                // }
-                Vector2 MouseWroldPos = Main.MouseWorld;
-                NPC targetNPC = null;
-                float minDist = float.MaxValue;
-                foreach (var npc in Main.ActiveNPCs)
-				{
-					bool canBeChased = npc.CanBeChasedBy(projectile);
-					if (canBeChased && npc.active)
-					{
-						if (Vector2.Distance(npc.Center, MouseWroldPos) < 500f && Vector2.Distance(npc.Center, MouseWroldPos) < minDist)
-						{
-							targetNPC = npc;
-							minDist = Vector2.Distance(npc.Center, MouseWroldPos);
-						}
-					}
-				}
-                // Dust.QuickDustLine(targetNPC.Center, MouseWroldPos, 10f, Color.Red);
-                Player owner = Main.player[NPC.target];
-                if(owner != null && targetNPC != null)
-                {
-                    owner.MinionAttackTargetNPC = targetNPC.whoAmI;
-                }
-                NPC.checkDead();
-            }
-            else
-            {
-                NPC.life = NPC.lifeMax;
-            }
-        }
+        // public override void OnHitByProjectile(Projectile projectile, NPC.HitInfo hit, int damageDone)
+        // {
+        //     if(projectile.owner == Main.myPlayer)
+        //     {
+        //         MouseWroldPosX = Main.MouseWorld.X;
+        //         MouseWroldPosY = Main.MouseWorld.Y;
+        //     }
+
+        //     if (projectile.owner < 255 &&
+        //         projectile.owner == ownerId &&
+        //         hit.DamageType == DamageClass.SummonMeleeSpeed)
+        //     {
+        //         NPC.ai[1] = 1f;
+        //         NPC.ai[2] = (float)(damageDone * 0.8f);
+        //         // Player owner = Main.player[NPC.target];
+        //         // if(owner != null && NPC.ai[2] >= 0 && Main.npc[(int)NPC.ai[2]].active)
+        //         // {
+        //         //     owner.MinionAttackTargetNPC = (int)NPC.ai[2];
+        //         // }
+                
+        //         Vector2 MouseWroldPos = new Vector2(MouseWroldPosX, MouseWroldPosY);
+        //         NPC targetNPC = null;
+        //         float minDist = float.MaxValue;
+        //         foreach (var npc in Main.ActiveNPCs)
+		// 		{
+		// 			bool canBeChased = npc.CanBeChasedBy(projectile);
+		// 			if (canBeChased && npc.active)
+		// 			{
+		// 				if (Vector2.Distance(npc.Center, MouseWroldPos) < 500f && Vector2.Distance(npc.Center, MouseWroldPos) < minDist)
+		// 				{
+		// 					targetNPC = npc;
+		// 					minDist = Vector2.Distance(npc.Center, MouseWroldPos);
+		// 				}
+		// 			}
+		// 		}
+        //         // Dust.QuickDustLine(targetNPC.Center, MouseWroldPos, 10f, Color.Red);
+        //         Player owner = Main.player[ownerId];
+        //         if(owner != null && targetNPC != null)
+        //         {
+        //             owner.MinionAttackTargetNPC = targetNPC.whoAmI;
+        //         }
+                
+
+        //         Dying = true;
+        //         Main.NewText("onhitbyprojectile dead triggerred");
+        //     }
+        //     else
+        //     {
+        //         NPC.life = NPC.lifeMax;
+        //     }
+
+        //     NPC.netUpdate = true;
+
+        //     Main.NewText("onhitbyprojectile: " + "mouseworldpos: " + MouseWroldPosX + " " + MouseWroldPosY + " ownerid: " + ownerId);
+
+        //     string side =
+        //         Main.netMode == NetmodeID.Server ? "SERVER" :
+        //         Main.netMode == NetmodeID.MultiplayerClient ? "CLIENT" :
+        //         "SINGLE";
+
+        //     Mod.Logger.Info($"[{side}] onhitbyprojectile triggered");
+        // }
 
         public override bool CheckDead()
         {
-            if (Main.netMode != NetmodeID.MultiplayerClient && HitByOwner)
+            Player player = Main.player[ownerId];
+            bool HitByOwner = TIME_LEFT - (int)NPC.ai[0] > 0;
+            // int HitDamage = (int)NPC.ai[2];
+            // Main.NewText("HitByOwner: " + HitByOwner + " HitDamage: " + HitDamage);
+            if (player.whoAmI == Main.myPlayer && HitByOwner)
             {
-                Player player = Main.player[NPC.target];
-                Vector2 dir = (Main.MouseWorld - player.Center).SafeNormalize(Vector2.UnitX);
+                
+                Vector2 dir = (Main.MouseWorld - NPC.Center).SafeNormalize(Vector2.UnitX);
 
                 Projectile.NewProjectile(
                     NPC.GetSource_Death(),
                     NPC.Center,
                     dir * 40f,
                     ModContent.ProjectileType<CursedMagicTowerBulletV3>(),
-                    (int)(NPC.ai[0]+HitDamage), (int)NPC.ai[1], player.whoAmI);
+                    (int)(damage/* *HitDamage */), (int)knockBack, player.whoAmI);
 
-                // Main.NewText("origin damage: " + NPC.ai[0] + " hit damage: " + HitDamage + " final damage: " + (int)(NPC.ai[0]+HitDamage));
 
-                // SoundEngine.PlaySound(SoundID.Item71, NPC.Center);
-                // DustHelper.MakeDustRing(NPC.Center, DustID.Electric, 1f, 20);
+                NPC targetNPC = null;
+                float minDist = float.MaxValue;
+                foreach (var npc in Main.ActiveNPCs)
+				{
+					bool canBeChased = npc.CanBeChasedBy(player);
+					if (canBeChased && npc.active && npc.type != NPC.type)
+					{
+						if (Vector2.Distance(npc.Center, Main.MouseWorld) < 500f && Vector2.Distance(npc.Center, Main.MouseWorld) < minDist)
+						{
+							targetNPC = npc;
+							minDist = Vector2.Distance(npc.Center, Main.MouseWorld);
+						}
+					}
+				}
+                // Dust.QuickDustLine(targetNPC.Center, MouseWroldPos, 10f, Color.Red);
+                if(player != null && targetNPC != null)
+                {
+                    player.MinionAttackTargetNPC = targetNPC.whoAmI;
+                }
+            }
 
-                // Main.NewText("[" + DateTime.UtcNow.Ticks + "] CursedMagicTowerBulletNPC: CheckDead checkpoint 1");
-
-                SoundEngine.PlaySound(SoundID.Item110, NPC.Center);
-
+            if(!MinionAIHelper.IsServer())
+            {
                 // create dead dust
                 for(int i = 0; i < 3; i++)
                 {
@@ -298,13 +338,32 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     dust3.velocity = NPC.velocity.RotatedBy(MinionAIHelper.RandomFloat(-ModGlobal.PI_FLOAT/32f, ModGlobal.PI_FLOAT/32f)) * 0.7f;
                 }
             }
+            
+            SoundEngine.PlaySound(SoundID.Item110, NPC.Center);
             return true;
         }
 
-        // public bool PreDraw(SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor)
-        // {
-        //     return false;
-        // }
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            writer.Write(damage);
+            writer.Write(knockBack);
+            writer.Write(targetId);
+            writer.Write(ownerId);
+            writer.Write(MouseWroldPosX);
+            writer.Write(MouseWroldPosY);
+            writer.Write(Dying);
+        }
+
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            damage = reader.ReadSingle();
+            knockBack = reader.ReadSingle();
+            targetId = reader.ReadInt32();
+            ownerId = reader.ReadInt32();
+            MouseWroldPosX = reader.ReadSingle();
+            MouseWroldPosY = reader.ReadSingle();
+            Dying = reader.ReadBoolean();
+        }
     }
 
     public class CursedMagicTowerBulletV3 : ModProjectile
@@ -315,10 +374,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         private const float MAX_SPEED = 40f;
         private const float ACC = 1.0f;
-
-        private float DustDir = 0f;
-
-        private bool HasFoundSphere = false;
 
         public override string Texture => ModGlobal.VANILLA_NPC_TEXTURE_PATH + NPCID.CursedSkull;
         private const string TRAIL_VERTEX_TEXTURE_PATH = ModGlobal.MOD_TEXTURE_PATH + "Vertexes/TriangleVertex";

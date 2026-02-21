@@ -22,6 +22,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         private const float ACC = 0.2f;
         private const float INERTIA = 15f;
         private const float EXPLOSION_RADIUS = 80f;
+        private const int DEBUFF_DURATION_PER_LEVEL = (int)(60 * 0.15f);
+        private const int MAX_DEBUFF_LEVEL = 10;
         private const float DAMAGE_INCREASE_PER_LEVEL = 0.02f;
 
         public override void SetStaticDefaults()
@@ -80,12 +82,27 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             if (Projectile.timeLeft % 60 == 0)
             {
                 List<NPC> targets = MinionAIHelper.SearchTargetsInRadius(Projectile.Center, EXPLOSION_RADIUS);
-                foreach (NPC targ in targets)
+                if(MinionAIHelper.IsServer())
                 {
-                    targ.AddBuff(ModBuffID.MothronDustDebuff, 60);
-                    var npcData = targ.GetGlobalNPC<MothronDustDebuffNPC>();
-                    npcData.lvl++;
-                    // Main.NewText("Add mothron dust debuff to target: " + targ.type);
+                    foreach (NPC targ in targets)
+                    {
+                        int buffType = ModBuffID.MothronDustDebuff;
+                        int index = targ.FindBuffIndex(buffType);
+                        if(index == -1)
+                        {
+                            targ.AddBuff(buffType, DEBUFF_DURATION_PER_LEVEL);
+                            // Mod.Logger.Info("MothronBabyFriendly: AI: Add mothron dust debuff to target: " + targ.type);
+                        }
+                        else
+                        {
+                            targ.buffTime[index] += DEBUFF_DURATION_PER_LEVEL;
+                            if(targ.buffTime[index] > DEBUFF_DURATION_PER_LEVEL * MAX_DEBUFF_LEVEL)
+                            {
+                                targ.buffTime[index] = DEBUFF_DURATION_PER_LEVEL * MAX_DEBUFF_LEVEL;
+                            }
+                            // Mod.Logger.Info("MothronBabyFriendly: AI: Update mothron dust debuff to target: " + targ.type + " lvl: " + targ.buffTime[index] / DEBUFF_DURATION_PER_LEVEL);
+                        }
+                    }
                 }
                 for (int i = 0; i < 15; i++)
                 {
@@ -151,12 +168,18 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         public override void ModifyHitNPC(NPC target, ref NPC.HitModifiers modifiers)
         {
-            var npcData = target.GetGlobalNPC<MothronDustDebuffNPC>();
+            int buffType = ModBuffID.MothronDustDebuff;
+            int index = target.FindBuffIndex(buffType);
 
-            if (npcData.lvl > 0)
+            if (index != -1)
             {
-                float bonus = 1f + (npcData.lvl * DAMAGE_INCREASE_PER_LEVEL);
-                modifiers.FinalDamage *= bonus;
+                int lvl = target.buffTime[index] / DEBUFF_DURATION_PER_LEVEL; // 每60tick一层
+
+                if (lvl > 0)
+                {
+                    float bonus = 1f + (lvl * DAMAGE_INCREASE_PER_LEVEL);
+                    modifiers.FinalDamage *= bonus;
+                }
             }
         }
 
@@ -225,21 +248,29 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             // 旋转，增加视觉效果
             Projectile.rotation += Projectile.velocity.X * 0.05f;
 
-            // 粒子效果（可选）
-            // if (Main.rand.NextBool(5))
-            // {
-            //     Dust.NewDust(Projectile.position, Projectile.width, Projectile.height, DustID.Sand, 0f, 0f);
-            // }
+            NPC target = MinionAIHelper.SearchForTargets(
+                Main.player[Projectile.owner],
+                Projectile,
+                300f,
+                false,
+                null).TargetNPC;
+            if(target != null)
+            {
+                Projectile.Kill();
+            }
         }
 
         public override void Kill(int timeLeft)
         {
-            int num = MinionAIHelper.RandomInt(1, 3);
-            for(int i = 0; i < num; i++)
+            if(Projectile.owner == Main.myPlayer)
             {
-                float directionOffset = MinionAIHelper.RandomFloat(-ModGlobal.PI_FLOAT/4f, ModGlobal.PI_FLOAT/4f);
-                Vector2 vel = Projectile.velocity.RotatedBy(directionOffset);
-                Projectile.NewProjectile(Projectile.GetSource_FromAI(), Projectile.Center, vel, ModProjectileID.MothronBabyFriendly, Projectile.damage, Projectile.knockBack, Projectile.owner);
+                int num = MinionAIHelper.RandomInt(1, 3);
+                for(int i = 0; i < num; i++)
+                {
+                    float directionOffset = MinionAIHelper.RandomFloat(-ModGlobal.PI_FLOAT/4f, ModGlobal.PI_FLOAT/4f);
+                    Vector2 vel = Projectile.velocity.RotatedBy(directionOffset);
+                    Projectile.NewProjectile(Projectile.GetSource_FromAI(), Projectile.Center, vel, ModProjectileID.MothronBabyFriendly, Projectile.damage, Projectile.knockBack, Projectile.owner);
+                }
             }
 
             for (int i = 0; i < 10; i++)
