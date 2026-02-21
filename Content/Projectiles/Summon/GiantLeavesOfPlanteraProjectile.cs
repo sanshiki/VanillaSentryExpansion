@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using System;
+using System.IO;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.DataStructures;
@@ -42,8 +43,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         protected override float SENTRY_RECALL_MAX_DIST => 3700f;
         protected override int ONGROUND_CNT_THRESHOLD => 15;
         protected bool isCharged = false;
-        protected bool BladShotInited = false;
-        protected Vector2 CursorPos;
 
         protected override void CustomSentryRecall(SentryRecallInfo info)
         {
@@ -53,31 +52,28 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 // Main.NewText("Sentry Recall Inited:"+info.ID);
                 if(info.TileCollide) info.TargetPos = MinionAIHelper.SearchForGround(info.TargetPos+new Vector2(0, 100f), 10, 16, (int)(sentry.height * 0.5f));
                 info.AnchorInited = true;
-                info.Anchor_ID = Projectile.NewProjectile(
-                    Projectile.GetSource_FromAI(),
-                    info.TargetPos,
-                    Vector2.Zero,
-                    ModProjectileID.GiantLeavesOfPlanteraAnchor,
-                    Projectile.damage,
-                    Projectile.knockBack,
-                    Projectile.owner
-                );
-                Projectile proj = Main.projectile[info.Anchor_ID];
-                if (proj.ModProjectile is GiantLeavesOfPlanteraAnchor anchor_)
+                if(Projectile.owner == Main.myPlayer)
                 {
-                    anchor_.sentryInfo = info;
+                    info.Anchor_ID = Projectile.NewProjectile(
+                        Projectile.GetSource_FromAI(),
+                        info.TargetPos,
+                        Vector2.Zero,
+                        ModProjectileID.GiantLeavesOfPlanteraAnchor,
+                        Projectile.damage,
+                        Projectile.knockBack,
+                        Projectile.owner
+                    );
+                    Projectile proj = Main.projectile[info.Anchor_ID];
+                    if (proj.ModProjectile is GiantLeavesOfPlanteraAnchor anchor_)
+                    {
+                        anchor_.sentryInfo = info;
+                    }
                 }
             }
         }
 
         public override void AI()
         {
-            if (!BladShotInited)
-            {
-                CursorPos = Main.MouseWorld;
-                BladShotInited = true;
-            }
-
             base.AI();
             Player player = Main.player[Projectile.owner];
             if (State == WAVE_STATE && isCharged)
@@ -88,23 +84,28 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 if(/* Projectile.timeLeft % 2 == 0 &&  */wave_ratio >= wave_ratio_mean - wave_ratio_range && wave_ratio <= wave_ratio_mean + wave_ratio_range)
                 {
                     Vector2 direction = Vector2.Normalize(Projectile.Center - player.Center);
-                    Projectile bullet = Projectile.NewProjectileDirect(
-                        Projectile.GetSource_FromAI(),
-                        player.Center + direction * PoleLength * 0.8f,
-                        Vector2.Normalize(Projectile.Center - player.Center) * 6f,
-                        MinionAIHelper.RandomBool() ? ModProjectileID.GiantLeavesOfPlanteraBullet1 : ModProjectileID.GiantLeavesOfPlanteraBullet2,
-                        (int)(Projectile.damage * 0.75f),
-                        2,
-                        Projectile.owner
-                    );
+                    if(Projectile.owner == Main.myPlayer)
+                    {
+                        Projectile bullet = Projectile.NewProjectileDirect(
+                            Projectile.GetSource_FromAI(),
+                            player.Center + direction * PoleLength * 0.8f,
+                            Vector2.Normalize(Projectile.Center - player.Center) * 6f,
+                            MinionAIHelper.RandomBool() ? ModProjectileID.GiantLeavesOfPlanteraBullet1 : ModProjectileID.GiantLeavesOfPlanteraBullet2,
+                            (int)(Projectile.damage * 0.75f),
+                            2,
+                            Projectile.owner
+                        );
+                    }
                 }
             }
             if (player.HasBuff(ModBuffID.TikiFlagBuff))
             {
+                if(!isCharged) Projectile.netUpdate = true;
                 isCharged = true;
             }
             else
             {
+                if(isCharged) Projectile.netUpdate = true;
                 isCharged = false;
             }
         }
@@ -137,6 +138,18 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 }
             }
             base.CreateDustEffect(player);
+        }
+
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            base.SendExtraAI(writer);
+            writer.Write(isCharged);
+        }
+
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            base.ReceiveExtraAI(reader);
+            isCharged = reader.ReadBoolean();
         }
     }
 }

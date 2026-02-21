@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using System;
+using System.IO;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.DataStructures;
@@ -41,7 +42,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         protected override int ENHANCE_BUFF_ID => ModBuffID.HellFlagBuff;
         protected override int NPC_DEBUFF_ID => BuffID.BoneWhipNPCDebuff;
         private bool isCharged = false;
-        private bool SoundPlayed = false;
         public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone)
         {
             if (isCharged)
@@ -59,19 +59,22 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 // Main.NewText("Sentry Recall Inited:"+info.ID);
                 if(info.TileCollide) info.TargetPos = MinionAIHelper.SearchForGround(info.TargetPos+new Vector2(0, 100f), 10, 16, (int)(sentry.height * 0.5f));
                 info.AnchorInited = true;
-                info.Anchor_ID = Projectile.NewProjectile(
-                    Projectile.GetSource_FromAI(),
-                    info.TargetPos,
-                    Vector2.Zero,
-                    ModProjectileID.HellFlagAnchor,
-                    Projectile.damage,
-                    Projectile.knockBack,
-                    Projectile.owner
-                );
-                Projectile proj = Main.projectile[info.Anchor_ID];
-                if (proj.ModProjectile is HellFlagAnchor anchor_)
+                if(Projectile.owner == Main.myPlayer)
                 {
-                    anchor_.sentryInfo = info;
+                    info.Anchor_ID = Projectile.NewProjectile(
+                        Projectile.GetSource_FromAI(),
+                        info.TargetPos,
+                        Vector2.Zero,
+                        ModProjectileID.HellFlagAnchor,
+                        Projectile.damage,
+                        Projectile.knockBack,
+                        Projectile.owner
+                    );
+                    Projectile proj = Main.projectile[info.Anchor_ID];
+                    if (proj.ModProjectile is HellFlagAnchor anchor_)
+                    {
+                        anchor_.sentryInfo = info;
+                    }
                 }
             }
         }
@@ -82,10 +85,12 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Player owner = Main.player[Projectile.owner];
             if (owner.HasBuff(ModBuffID.HellFlagBuff))
             {
+                if(!isCharged) Projectile.netUpdate = true;
                 isCharged = true;
             }
             else
             {
+                if(isCharged) Projectile.netUpdate = true;
                 isCharged = false;
             }
         }
@@ -104,6 +109,18 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 }
             }
             base.CreateDustEffect(player);
+        }
+
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            base.SendExtraAI(writer);
+            writer.Write(isCharged);
+        }
+
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            base.ReceiveExtraAI(reader);
+            isCharged = reader.ReadBoolean();
         }
     }
 }

@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using System;
+using System.IO;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.DataStructures;
@@ -57,8 +58,10 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         {
             if (!BladShotInited)
             {
-                CursorPos = Main.MouseWorld;
+                if(Projectile.owner == Main.myPlayer)
+                    CursorPos = Main.MouseWorld;
                 BladShotInited = true;
+                Projectile.netUpdate = true;
             }
 
             base.AI();
@@ -66,23 +69,28 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             if (State == WAVE_STATE && Projectile.timeLeft == TIME_LEFT_WAVE / 2 && isCharged)
             {
                 Vector2 direction = Vector2.Normalize(CursorPos - player.Center);
-                Projectile bladeShot = Projectile.NewProjectileDirect(
-                    Projectile.GetSource_FromAI(),
-                    player.Center + direction * PoleLength * 0.8f,
-                    Vector2.Normalize(CursorPos - player.Center) * 6f * player.whipRangeMultiplier,
-                    ModProjectileID.SantaFlagBladeShot,
-                    Projectile.damage,
-                    Projectile.knockBack,
-                    Projectile.owner
-                );
-                if(isCharged) bladeShot.ai[0] = 1f;
+                if(Projectile.owner == Main.myPlayer)
+                {
+                    Projectile bladeShot = Projectile.NewProjectileDirect(
+                        Projectile.GetSource_FromAI(),
+                        player.Center + direction * PoleLength * 0.8f,
+                        Vector2.Normalize(CursorPos - player.Center) * 6f * player.whipRangeMultiplier,
+                        ModProjectileID.SantaFlagBladeShot,
+                        Projectile.damage,
+                        Projectile.knockBack,
+                        Projectile.owner
+                    );
+                    if(isCharged) bladeShot.ai[0] = 1f;
+                }
             }
             if (player.HasBuff(ModBuffID.SantaFlagBuff))
             {
+                if(!isCharged) Projectile.netUpdate = true;
                 isCharged = true;
             }
             else
             {
+                if(isCharged) Projectile.netUpdate = true;
                 isCharged = false;
             }
         }
@@ -101,6 +109,25 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 }
             }
             base.CreateDustEffect(player);
+        }
+
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            base.SendExtraAI(writer);
+            writer.Write(isCharged);
+            writer.Write(BladShotInited);
+            writer.Write(CursorPos.X);
+            writer.Write(CursorPos.Y);
+        }
+
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            base.ReceiveExtraAI(reader);
+            isCharged = reader.ReadBoolean();
+            BladShotInited = reader.ReadBoolean();
+            float CursorPosX = reader.ReadSingle();
+            float CurosrPosY = reader.ReadSingle();
+            CursorPos = new Vector2(CursorPosX, CurosrPosY);
         }
     }
 }

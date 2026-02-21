@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Collections;
 using Terraria;
@@ -61,19 +62,22 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 // Main.NewText("Sentry Recall Inited:"+info.ID);
                 if(info.TileCollide) info.TargetPos = MinionAIHelper.SearchForGround(info.TargetPos+new Vector2(0, 100f), 10, 16, (int)(sentry.height * 0.5f));
                 info.AnchorInited = true;
-                info.Anchor_ID = Projectile.NewProjectile(
-                    Projectile.GetSource_FromAI(),
-                    info.TargetPos,
-                    Vector2.Zero,
-                    ModProjectileID.OneTrueFlagAnchor,
-                    Projectile.damage,
-                    Projectile.knockBack,
-                    Projectile.owner
-                );
-                Projectile proj = Main.projectile[info.Anchor_ID];
-                if (proj.ModProjectile is OneTrueFlagAnchor anchor_)
+                if(Projectile.owner == Main.myPlayer)
                 {
-                    anchor_.sentryInfo = info;
+                    info.Anchor_ID = Projectile.NewProjectile(
+                        Projectile.GetSource_FromAI(),
+                        info.TargetPos,
+                        Vector2.Zero,
+                        ModProjectileID.OneTrueFlagAnchor,
+                        Projectile.damage,
+                        Projectile.knockBack,
+                        Projectile.owner
+                    );
+                    Projectile proj = Main.projectile[info.Anchor_ID];
+                    if (proj.ModProjectile is OneTrueFlagAnchor anchor_)
+                    {
+                        anchor_.sentryInfo = info;
+                    }
                 }
                 if(!SoundPlayed)
                 {
@@ -88,17 +92,18 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             base.AI();
             if(State == WAVE_STATE)
             {
-                bool bladeShotExists = false;
-                for(int i = 0; i < Main.maxProjectiles; i++)
-                {
-                    Projectile projectile = Main.projectile[i];
-                    if(projectile.type == ModProjectileID.OneTrueFlagBladeShot && projectile.active && projectile.owner == Projectile.owner)
-                    {
-                        bladeShotExists = true;
-                        break;
-                    }
-                }
-                if(!BladShotInited && !bladeShotExists)
+                // bool bladeShotExists = false;
+                // for(int i = 0; i < Main.maxProjectiles; i++)
+                // {
+                //     Projectile projectile = Main.projectile[i];
+                //     if(projectile.type == ModProjectileID.OneTrueFlagBladeShot && projectile.active && projectile.owner == Projectile.owner)
+                //     {
+                //         bladeShotExists = true;
+                //         break;
+                //     }
+                // }
+                Player player = Main.player[Projectile.owner];
+                if(!BladShotInited/*  && !bladeShotExists */ && Projectile.owner == Main.myPlayer)
                 {
                     Projectile bladeShot = Projectile.NewProjectileDirect(
                         Projectile.GetSource_FromAI(),
@@ -108,7 +113,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                         Projectile.damage,
                         Projectile.knockBack,
                         Projectile.owner,
-                        (float)(TIME_LEFT_WAVE / AttackSpeed),
+                        (float)(TIME_LEFT_WAVE / AttackSpeed/* player.itemAnimationMax */),
                         Projectile.identity
                     );
                     BladShotInited = true;
@@ -116,13 +121,21 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             }
         }
 
-        // public override bool PreDraw(ref Color lightColor)
-        // {
-        //     if(State == WAVE_STATE)
-        //     {
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            base.SendExtraAI(writer);
+            // writer.Write(BladShotInited);
+            writer.Write(CursorPos.X);
+            writer.Write(CursorPos.Y);
+        }
 
-        //     }
-        //     return base.PreDraw(ref lightColor);
-        // }
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            base.ReceiveExtraAI(reader);
+            // BladShotInited = reader.ReadBoolean();
+            float CursorPosX = reader.ReadSingle();
+            float CurosrPosY = reader.ReadSingle();
+            CursorPos = new Vector2(CursorPosX, CurosrPosY);
+        }
     }
 }

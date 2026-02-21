@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using System;
+using System.IO;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.DataStructures;
@@ -36,6 +37,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         private Vector2 RelativeVelocity;
         private int TimeLeft;
         private int hitCount = 0;  // 记录击中敌人的次数，用于伤害衰减
+        protected Vector2 CursorPos;
+        private bool Inited = false;
 
         public override void SetStaticDefaults()
         {
@@ -49,6 +52,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.height = 290;
             Projectile.friendly = true;
             Projectile.tileCollide = false;
+            Projectile.ignoreWater = true;
+            Projectile.netImportant = true;
             Projectile.timeLeft = 600;
             Projectile.penetrate = -1;
             Projectile.usesLocalNPCImmunity = true;
@@ -60,11 +65,12 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         public override void OnSpawn(IEntitySource source)
         {
             Player player = Main.player[Projectile.owner];
-            ShootDirection = Vector2.Normalize(Main.MouseWorld - player.Center);
             Projectile.timeLeft = (int)Projectile.ai[0];
             TimeLeft = Projectile.timeLeft;
-            ShootSpeed = SHOOT_DIST / TimeLeft * 2f * player.whipRangeMultiplier;
-            RelativeVelocity = ShootDirection * ShootSpeed;
+            ShootSpeed = SHOOT_DIST / TimeLeft * player.whipRangeMultiplier * 2f;
+            if(Projectile.owner == Main.myPlayer)
+                CursorPos = Main.MouseWorld;
+            Projectile.netUpdate = true;
             // Main.NewText("ShootSpeed: " + ShootSpeed + " TimeLeft: " + TimeLeft + " ShootDist: " + SHOOT_DIST);
         }
         public override void AI()
@@ -84,6 +90,16 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     return;
                 }
             }
+
+            if(!Inited)
+            {
+                ShootDirection = Vector2.Normalize(CursorPos - player.Center);
+                RelativeVelocity = ShootDirection * ShootSpeed;
+                Projectile.timeLeft = (int)Projectile.ai[0];
+                Inited = true;
+            }
+
+            // Main.NewText("onetrueflagblade ai.alpha:" + Projectile.alpha+"TimeLeft:"+TimeLeft);
 
             // update relative velocity and displacement
             float de_acc = ShootSpeed / TimeLeft;
@@ -334,6 +350,25 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             //结束顶点绘制
             sb.End();
             sb.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, SamplerState.AnisotropicClamp, DepthStencilState.None, RasterizerState.CullNone, null, Main.GameViewMatrix.TransformationMatrix);
+        }
+
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            base.SendExtraAI(writer);
+            writer.Write(CursorPos.X);
+            writer.Write(CursorPos.Y);
+            writer.Write(TimeLeft);
+            writer.Write(ShootSpeed);
+        }
+
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            base.ReceiveExtraAI(reader);
+            float CursorPosX = reader.ReadSingle();
+            float CurosrPosY = reader.ReadSingle();
+            CursorPos = new Vector2(CursorPosX, CurosrPosY);
+            TimeLeft = reader.ReadInt32();
+            ShootSpeed = reader.ReadSingle();
         }
     }
 }

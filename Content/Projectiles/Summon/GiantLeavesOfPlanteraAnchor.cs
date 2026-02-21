@@ -78,6 +78,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                         sentry.Center = sentryInfo.TargetPos + new Vector2(0, -sentry.height * 0.5f);
                         sentry.velocity = sentryInfo.TileCollide ? new Vector2(0, 20f) : Vector2.Zero;
                         sentryInfo.IsRecalled = true;
+                        sentry.netUpdate = true;
                     }
 
                     SoundEngine.PlaySound(SoundID.Grass,Projectile.Center);
