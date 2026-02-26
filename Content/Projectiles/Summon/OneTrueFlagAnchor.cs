@@ -19,7 +19,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 {
     public class OneTrueFlagAnchor : ModProjectile, IRecallSentryAnchor
     {
-        private const bool DEBUG_RECALL_SYNC = true;
+        private const bool DEBUG_RECALL_SYNC = false;
         public override string Texture => ModGlobal.VANILLA_PROJECTILE_TEXTURE_PATH + ProjectileID.JimsDrone;
         private const int HELLPOD_SUMMON_HEIGHT = 1000;
         private const int HELLPOD_DAMAGE = 100;

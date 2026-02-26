@@ -91,6 +91,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         protected virtual float SENTRY_RECALL_MAX_DIST => 4000f;
         protected virtual float SENTRY_RECALL_TARGET_OFFSET => 70f;
         protected virtual float SENTRY_RANDOM_OFFSET => 20f;
+        protected virtual bool DEBUG_RECALL_SYNC => false;
         protected virtual bool USE_CUSTOM_SENTRY_RECALL => false;
         protected virtual int SENTRY_RECALL_ANCHOR_PROJECTILE_TYPE => -1;
         protected virtual bool AUTO_READD_BUFF_ON_PLANT => false;
@@ -266,9 +267,12 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 };
 
                 RecallSentryGlobal.IssueRecallCommand(sentry, command);
-                Mod.Logger.Info(
-                    $"[FlagProjectile] IssueRecall flagWho={Projectile.whoAmI} flagIdentity={Projectile.identity} owner={Projectile.owner} mode={Main.netMode} " +
-                    $"sentryWho={sentry.whoAmI} sentryIdentity={sentry.identity} useAnchor={USE_CUSTOM_SENTRY_RECALL} target={targetPos} tile={sentry.tileCollide}");
+                if (DEBUG_RECALL_SYNC)
+                {
+                    Mod.Logger.Info(
+                        $"[FlagProjectile] IssueRecall flagWho={Projectile.whoAmI} flagIdentity={Projectile.identity} owner={Projectile.owner} mode={Main.netMode} " +
+                        $"sentryWho={sentry.whoAmI} sentryIdentity={sentry.identity} useAnchor={USE_CUSTOM_SENTRY_RECALL} target={targetPos} tile={sentry.tileCollide}");
+                }
             }
         }
 

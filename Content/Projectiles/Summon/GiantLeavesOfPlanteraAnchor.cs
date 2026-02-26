@@ -19,7 +19,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 {
     public class GiantLeavesOfPlanteraAnchor : ModProjectile, IRecallSentryAnchor
     {
-        private const bool DEBUG_RECALL_SYNC = true;
+        private const bool DEBUG_RECALL_SYNC = false;
         public override string Texture => ModGlobal.VANILLA_PROJECTILE_TEXTURE_PATH + ProjectileID.JimsDrone;
 
         private const int BASE_WAIT_TIME = 20;

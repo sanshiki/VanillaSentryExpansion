@@ -27,7 +27,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
     public class RecallSentryGlobal : GlobalProjectile
     {
-        private const bool DEBUG_RECALL_SYNC = true;
+        private const bool DEBUG_RECALL_SYNC = false;
 
         public override bool InstancePerEntity => true;
 
