@@ -70,6 +70,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 			{ ProjectileID.DD2ExplosiveTrapT2, new ExplosiveTrapOverride() },
 			{ ProjectileID.DD2ExplosiveTrapT3, new ExplosiveTrapOverride() },
 			{ ProjectileID.SpiderHiver, new QueenSpiderOverride() },
+			{ ProjectileID.SpiderEgg, new SpiderEggOverride() },
 			{ ProjectileID.HoundiusShootius, new EyeBallTurretOverride() },
 			{ ProjectileID.HoundiusShootiusFireball, new EyeBallTurretFireballOverride() },
 			{ ProjectileID.FrostHydra, new FrostHydraOverrdie() },

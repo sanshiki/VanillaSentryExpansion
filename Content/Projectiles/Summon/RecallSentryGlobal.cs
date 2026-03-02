@@ -124,35 +124,38 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             }
             HasInitSync++;
 
-            if (UseAnchorRecall && AnchorProjectileType > -1 && projectile.owner == Main.myPlayer)
+            if (UseAnchorRecall && AnchorProjectileType > -1)
             {
                 if (!AnchorSpawned)
                 {
                     AnchorSpawned = true;
-                    int anchorWhoAmI = Projectile.NewProjectile(
-                        projectile.GetSource_FromAI(),
-                        TargetPos,
-                        Vector2.Zero,
-                        AnchorProjectileType,
-                        projectile.damage,
-                        projectile.knockBack,
-                        projectile.owner
-                    );
-
-                    if (Main.projectile.IndexInRange(anchorWhoAmI))
+                    if(projectile.owner == Main.myPlayer)
                     {
-                        Projectile anchor = Main.projectile[anchorWhoAmI];
-                        AnchorReference.Set(anchor);
-                        if (anchor.ModProjectile is IRecallSentryAnchor recallAnchor)
+                        int anchorWhoAmI = Projectile.NewProjectile(
+                            projectile.GetSource_FromAI(),
+                            TargetPos,
+                            Vector2.Zero,
+                            AnchorProjectileType,
+                            projectile.damage,
+                            projectile.knockBack,
+                            projectile.owner
+                        );
+
+                        if (Main.projectile.IndexInRange(anchorWhoAmI))
                         {
-                            recallAnchor.Configure(new ProjectileReference(projectile), TargetPos, OriginalTileCollide);
-                            anchor.netUpdate = true;
-                            if (!LoggedAnchorSpawn)
+                            Projectile anchor = Main.projectile[anchorWhoAmI];
+                            AnchorReference.Set(anchor);
+                            if (anchor.ModProjectile is IRecallSentryAnchor recallAnchor)
                             {
-                                LogDebug(
-                                    $"SpawnAnchor sentryWho={projectile.whoAmI} sentryId={projectile.identity} anchorWho={anchor.whoAmI} anchorType={AnchorProjectileType} " +
-                                    $"owner={projectile.owner} mode={Main.netMode} target={TargetPos} tile={OriginalTileCollide}");
-                                LoggedAnchorSpawn = true;
+                                recallAnchor.Configure(new ProjectileReference(projectile), TargetPos, OriginalTileCollide);
+                                anchor.netUpdate = true;
+                                if (!LoggedAnchorSpawn)
+                                {
+                                    LogDebug(
+                                        $"SpawnAnchor sentryWho={projectile.whoAmI} sentryId={projectile.identity} anchorWho={anchor.whoAmI} anchorType={AnchorProjectileType} " +
+                                        $"owner={projectile.owner} mode={Main.netMode} target={TargetPos} tile={OriginalTileCollide}");
+                                    LoggedAnchorSpawn = true;
+                                }
                             }
                         }
                     }
@@ -184,7 +187,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             }
 
             Vector2 toTarget = TargetPos - projectile.Center;
-            Main.NewText("toTarget: " + toTarget.Length());
+            // Main.NewText("toTarget: " + toTarget.Length());
             if (toTarget.Length() >= RecallThreshold)
             {
                 Vector2 toTargetDir = toTarget.SafeNormalize(Vector2.UnitX);

@@ -81,40 +81,34 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             {
                 int radius = (int)CalculateAuraRadius(LeafTimer);
 
-                if(MinionAIHelper.IsServer())
+                // 给范围内玩家加树妖祝福
+                foreach(Player player in Main.player)
                 {
-                    // 给范围内玩家加树妖祝福
-                    foreach(Player player in Main.player)
+                    if (player.active && !player.dead && Vector2.Distance(player.Center, Projectile.Center) < radius)
                     {
-                        if (player.active && !player.dead && Vector2.Distance(player.Center, Projectile.Center) < radius)
-                        {
-                            player.AddBuff(BuffID.DryadsWard, 30);
-                        }
-                    }
-
-                    // 给范围内敌人加树妖祸害
-                    for (int i = 0; i < Main.maxNPCs; i++)
-                    {
-                        NPC npc = Main.npc[i];
-                        if (npc.active && !npc.friendly && npc.lifeMax > 5 && !npc.dontTakeDamage &&
-                            Vector2.Distance(npc.Center, Projectile.Center) < radius && Collision.CanHit(Projectile.Center, 1, 1, npc.Center, 1, 1))
-                        {
-                            npc.AddBuff(BuffID.DryadsWardDebuff, 30);
-                        }
+                        player.AddBuff(BuffID.DryadsWard, 30);
                     }
                 }
-                else
-                {
 
-                    int dustIndex = Dust.NewDust(Projectile.position, Projectile.width, Projectile.height, DustID.DryadsWard, 0f, 0f);
-                    Dust dust = Main.dust[dustIndex];
-                    Random ran = new Random();
-                    float rate = ran.Next(100) / 100.0f;
-                    float velFactor = rate > 0.2 ? 0.2f : -0.6f;
-                    dust.velocity = (Projectile.Center + CenterOffset - dust.position) * velFactor;
-                    dust.noGravity = true;
-                    Main.NewText("dust triggerred");
+                // 给范围内敌人加树妖祸害
+                for (int i = 0; i < Main.maxNPCs; i++)
+                {
+                    NPC npc = Main.npc[i];
+                    if (npc.active && !npc.friendly && npc.lifeMax > 5 && !npc.dontTakeDamage &&
+                        Vector2.Distance(npc.Center, Projectile.Center) < radius && Collision.CanHit(Projectile.Center, 1, 1, npc.Center, 1, 1))
+                    {
+                        npc.AddBuff(BuffID.DryadsWardDebuff, 30);
+                    }
                 }
+
+                int dustIndex = Dust.NewDust(Projectile.position, Projectile.width, Projectile.height, DustID.DryadsWard, 0f, 0f);
+                Dust dust = Main.dust[dustIndex];
+                Random ran = new Random();
+                float rate = ran.Next(100) / 100.0f;
+                float velFactor = rate > 0.2 ? 0.2f : -0.6f;
+                dust.velocity = (Projectile.Center + CenterOffset - dust.position) * velFactor;
+                dust.noGravity = true;
+                // Main.NewText("dust triggerred");
             }
 
             // 持续生成环绕的叶子

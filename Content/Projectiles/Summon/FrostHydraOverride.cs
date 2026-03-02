@@ -6,6 +6,8 @@ using Terraria.DataStructures;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.Audio;
+using System.IO;
+using Terraria.ModLoader.IO;
 
 using Microsoft.Xna.Framework.Graphics;
 using SummonerExpansionMod.Content.Buffs.Summon;
@@ -23,7 +25,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         private int shootTimer = 0;
         private bool isShooting = false;
 
-        private Vector2 direction = new Vector2(1, 0);
+        private float directionAngle = 0f;
 
         public FrostHydraOverrdie()
         {
@@ -32,6 +34,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             RegisterFlags["OnTileCollide"] = true;
             RegisterFlags["TileCollideStyle"] = true;
             RegisterFlags["OnSpawn"] = true;
+            RegisterFlags["SendExtraAI"] = true;
+            RegisterFlags["ReceiveExtraAI"] = true;
         }
 
         public override void SetDefaults(Projectile projectile)
@@ -56,7 +60,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         public override bool OnTileCollide(Projectile projectile, Vector2 oldVelocity)
         {
             // projectile.velocity = Vector2.Zero;
-            if(projectile.velocity.X != 0f) projectile.netUpdate = true;
+            if(projectile.velocity.X != 0f) MinionAIHelper.SetProjectileNetUpdate(projectile);
             projectile.velocity.X = 0f;
             return true;
         }
@@ -69,7 +73,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         private void UpdateAnimation(Projectile projectile)
         {
-            float angle = direction.ToRotation();
+            Vector2 direction = directionAngle.ToRotationVector2();
+            float angle = directionAngle;
             int frameIdx = 0;
             projectile.spriteDirection =  direction.X > 0 ? 1 : -1;
             if((angle > -ANGLE_STEP/2f && angle <= ModGlobal.PI_FLOAT) || (angle > -ModGlobal.PI_FLOAT && angle <= -ModGlobal.PI_FLOAT + ANGLE_STEP/2f))
@@ -129,8 +134,9 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             if(target != null)
             {
                 Vector2 ShootCenter = projectile.Center;
-                direction = target.Center - projectile.Center;
+                Vector2 direction = target.Center - projectile.Center;
                 direction.Normalize();
+                directionAngle = direction.ToRotation();
 
                 if(shootTimer >= SHOOT_INTERVAL)
                 {
@@ -138,18 +144,20 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 }
                 if(shootTimer == 0)
                 {
-                    
-                    Projectile bullet = Projectile.NewProjectileDirect(
-                        projectile.GetSource_FromThis(),
-                        ShootCenter,
-                        direction * REAL_BULLET_SPEED,
-                        ProjectileID.FrostBlastFriendly,
-                        projectile.damage,
-                        projectile.knockBack, 
-                        projectile.owner);
+                    if(projectile.owner == Main.myPlayer)
+                    {
+                        Projectile bullet = Projectile.NewProjectileDirect(
+                            projectile.GetSource_FromThis(),
+                            ShootCenter,
+                            direction * REAL_BULLET_SPEED,
+                            ProjectileID.FrostBlastFriendly,
+                            projectile.damage,
+                            projectile.knockBack, 
+                            projectile.owner);
+                    }
 
-                    bullet.ai[0] = target.whoAmI;
                     isShooting = true;
+                    MinionAIHelper.SetProjectileNetUpdate(projectile);
                 }
             }
 
@@ -162,6 +170,20 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             UpdateAnimation(projectile);
 
             return false;
+        }
+
+        public override void SendExtraAI(Projectile projectile, BitWriter bitWriter, BinaryWriter binaryWriter)
+        {
+            binaryWriter.Write(shootTimer);
+            binaryWriter.Write(isShooting);
+            binaryWriter.Write(directionAngle);
+        }
+
+        public override void ReceiveExtraAI(Projectile projectile, BitReader bitReader, BinaryReader binaryReader)
+        {
+            shootTimer = binaryReader.ReadInt32();
+            isShooting = binaryReader.ReadBoolean();
+            directionAngle = binaryReader.ReadSingle();
         }
     }
 
@@ -177,11 +199,17 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         private const float DAMAGE_DECAY_FACTOR = 0.8f;
         private int hitCount = 0;
 
+        private int TargetId = -1;
+
+        private bool HomeinEnabled = true;
+
         public FrostBlastOverride()
         {
             RegisterFlags["SetDefaults"] = true;
             RegisterFlags["AI"] = true;
             RegisterFlags["ModifyHitNPC"] = true;
+            RegisterFlags["SendExtraAI"] = true;
+            RegisterFlags["ReceiveExtraAI"] = true;
         }
 
         public override void SetDefaults(Projectile projectile)
@@ -203,16 +231,38 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         public override void AI(Projectile projectile)
         {
             // get target
-            int targetId = (int)projectile.ai[0];
-            NPC target = targetId != -1 ? Main.npc[targetId] : null;
+            // int targetId = (int)projectile.ai[0];
+            // NPC target = targetId != -1 ? Main.npc[targetId] : null;
 
-            if(target == null) return;
-            if(!target.active) return;
+            // if(target == null) return;
+            // if(!target.active) return;
 
-            if((target.Center - projectile.Center).Length() > HOMING_RANGE || (target.Center - projectile.Center).Length() < 50f || projectile.penetrate < 3)
+            // if((target.Center - projectile.Center).Length() > HOMING_RANGE || (target.Center - projectile.Center).Length() < 50f || projectile.penetrate < 3)
+            // {
+            //     return;
+            // }
+
+            if(TargetId == -1)
             {
-                return;
+                NPC targetNPC = MinionAIHelper.SearchForTargets(
+                    Main.player[projectile.owner], 
+                    projectile, 
+                    HOMING_RANGE, 
+                    true, 
+                    null).TargetNPC;
+
+                TargetId = targetNPC != null ? targetNPC.whoAmI : -1;
             }
+
+            NPC target = TargetId != -1 ? Main.npc[TargetId] : null;
+            if(target == null || !target.active || (target.Center - projectile.Center).Length() > HOMING_RANGE || projectile.penetrate < 3)
+            {
+                if(HomeinEnabled) MinionAIHelper.SetProjectileNetUpdate(projectile);
+                HomeinEnabled = false;
+            }
+            
+            if(!HomeinEnabled) return;
+
 
             float direction = (target.Center - projectile.Center).ToRotation();
             float dir_err = direction - projectile.velocity.ToRotation();
@@ -234,6 +284,21 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             modifiers.FinalDamage *= multiplier;
 
             hitCount++;
+            MinionAIHelper.SetProjectileNetUpdate(projectile);
+        }
+
+        public override void SendExtraAI(Projectile projectile, BitWriter bitWriter, BinaryWriter binaryWriter)
+        {
+            binaryWriter.Write(TargetId);
+            binaryWriter.Write(hitCount);
+            binaryWriter.Write(HomeinEnabled);
+        }
+
+        public override void ReceiveExtraAI(Projectile projectile, BitReader bitReader, BinaryReader binaryReader)
+        {
+            TargetId = binaryReader.ReadInt32();
+            hitCount = binaryReader.ReadInt32();
+            HomeinEnabled = binaryReader.ReadBoolean();
         }
     }
 }

@@ -1,6 +1,5 @@
 using Microsoft.Xna.Framework;
 using System;
-using System.Collections.Generic;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ID;
@@ -17,11 +16,9 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
     public class QueenSpiderOverride : IProjectileOverride
     {
         private const int SHOOT_INTERVAL = 60;
-        private const float BULLET_SPEED = 15f;
+        private const float BULLET_SPEED = 17f;
         private const float COMPENSATE_ANGLE = 20f * ModGlobal.DEG_TO_RAD_FLOAT;
         private const float ANGLE_STEP = 22.5f * ModGlobal.DEG_TO_RAD_FLOAT;
-
-        private Dictionary<int, Projectile> eggDict = new Dictionary<int, Projectile>();
 
         private int shootTimer = 0;
 
@@ -140,7 +137,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
                     Vector2 ShootOffset = new Vector2(28f, 0).RotatedBy(direction.ToRotation()) + new Vector2(0, 12.5f);
 
-                    Projectile egg = Projectile.NewProjectileDirect(
+                    Projectile.NewProjectileDirect(
                         projectile.GetSource_FromThis(),
                         projectile.Center + ShootOffset,
                         direction * BULLET_SPEED,
@@ -148,29 +145,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                         projectile.damage,
                         projectile.knockBack,
                         projectile.owner);
-
-                    if(!eggDict.ContainsKey(egg.whoAmI))
-                        eggDict.Add(egg.whoAmI, egg);
-                }
-
-                // update egg queue
-                foreach(Projectile egg in eggDict.Values)
-                {
-                    if((target.Center - egg.Center).Length() < 200f)
-                    {
-                        Vector2 BabySpiderDir = (target.Center - egg.Center).SafeNormalize(Vector2.Zero);
-                        if(BabySpiderDir.ToRotation() <= -ModGlobal.PI_FLOAT/2f - COMPENSATE_ANGLE/2f || BabySpiderDir.ToRotation() >= -ModGlobal.PI_FLOAT/2f + COMPENSATE_ANGLE/2f)
-                        {
-                            BabySpiderDir = BabySpiderDir.RotatedBy(COMPENSATE_ANGLE/2f * (BabySpiderDir.X > 0f ? -1f : 1f));
-                        }
-                        egg.velocity = BabySpiderDir * egg.velocity.Length();
-                        eggDict.Remove(egg.whoAmI);
-                        egg.Kill();
-                    }
-                    if(egg.timeLeft <= 0 || !egg.active)
-                    {
-                        eggDict.Remove(egg.whoAmI);
-                    }
                 }
             }
 
@@ -186,32 +160,52 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         }
     }
 
-    // public class SpiderEggOverride : IProjectileOverride
-    // {
-    //     private const float GRAVITY = 0.3f;
-    //     public override void SetDefaults(Projectile projectile)
-    //     {
-    //         projectile.width = 16;
-    //         projectile.height = 16;
-    //         projectile.friendly = true;
-	// 		projectile.penetrate = -1;
-	// 		projectile.timeLeft = 60;
-	// 		projectile.scale = 0.9f;
-    //     }
+    public class SpiderEggOverride : IProjectileOverride
+    {
+        private const float GRAVITY = 0.2f;
+        private const float COMPENSATE_ANGLE = 10f * ModGlobal.DEG_TO_RAD_FLOAT;
+        private const float TRIGGER_RANGE = 200f;
 
-    //     public SpiderEggOverride()
-    //     {
-    //         RegisterFlags["SetDefaults"] = true;
-    //         RegisterFlags["PreAI"] = true;
-    //     }
+        public SpiderEggOverride()
+        {
+            RegisterFlags["SetDefaults"] = true;
+            RegisterFlags["PreAI"] = true;
+        }
 
-    //     public override bool PreAI(Projectile projectile)
-    //     {
-    //         // apply gravity
-    //         MinionAIHelper.ApplyGravity(projectile, GRAVITY, 20f);
-    //         return false;
-    //     }
-        
-        
-    // }
+        public override void SetDefaults(Projectile projectile)
+        {
+            projectile.width = 16;
+            projectile.height = 16;
+            projectile.friendly = true;
+            projectile.penetrate = -1;
+            projectile.timeLeft = 60;
+            projectile.scale = 0.9f;
+        }
+
+        public override bool PreAI(Projectile projectile)
+        {
+            MinionAIHelper.ApplyGravity(projectile, GRAVITY, 20f);
+
+            NPC target = MinionAIHelper.SearchForTargets(
+                Main.player[projectile.owner],
+                projectile,
+                TRIGGER_RANGE,
+                true).TargetNPC;
+
+            if(target != null)
+            {
+                Vector2 BabySpiderDir = (target.Center - projectile.Center).SafeNormalize(Vector2.Zero);
+                float targetAngle = BabySpiderDir.ToRotation();
+                if(targetAngle <= -ModGlobal.PI_FLOAT/2f - COMPENSATE_ANGLE || targetAngle >= -ModGlobal.PI_FLOAT/2f + COMPENSATE_ANGLE)
+                {
+                    BabySpiderDir = BabySpiderDir.RotatedBy(COMPENSATE_ANGLE * (BabySpiderDir.X > 0f ? -1f : 1f));
+                }
+
+                projectile.velocity = BabySpiderDir * projectile.velocity.Length();
+                projectile.Kill();
+            }
+
+            return true;
+        }
+    }
 }

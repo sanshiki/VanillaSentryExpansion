@@ -67,14 +67,19 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 Initialize();
             }
 
-            if (!TowerReference.IsValidIdentity)
+            if(LIVE_TIME - Projectile.timeLeft == 2)
             {
-                return;
+                MinionAIHelper.SetProjectileNetUpdate(Projectile);
             }
+
+            // Main.NewText("TowerOfDryadsBlessingProjectile AI");
+
 
             Projectile tower = TowerReference.Get();
             if (tower == null || !tower.active || tower.type != ModProjectileID.TowerOfDryadsBlessing)
             {
+                // string reason = tower == null ? "tower is null" : !tower.active ? "tower is not active" : tower.type != ModProjectileID.TowerOfDryadsBlessing ? "tower is not a TowerOfDryadsBlessing" : "unknown reason";
+                // Main.NewText("TowerOfDryadsBlessingProjectile AI: Tower is not valid," + reason);
                 Projectile.Kill();
                 return;
             }
@@ -147,6 +152,11 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 RotateRadius = BaseRotateRadius + tick * BaseRotateRadius / (float) (SECOND_STAGE - FIRST_STAGE);
                 RotateRadius = RotateRadius > BaseRotateRadius * 2 ? BaseRotateRadius * 2 : RotateRadius;
             }
+            // third stage: radius remain double
+            else if (elapsedTick > SECOND_STAGE && elapsedTick <= THIRD_STAGE)
+            {
+                RotateRadius = BaseRotateRadius * 2;
+            }
             // fourth stage: radius increase to four times
             else if (elapsedTick > THIRD_STAGE && elapsedTick <= FOURTH_STAGE)
             {
@@ -167,6 +177,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         public void SetTowerReference(Projectile tower)
         {
             TowerReference.Set(tower);
+            // Main.NewText("TowerOfDryadsBlessingProjectile SetTowerReference: TowerReference set");
         }
 
         public override void SendExtraAI(System.IO.BinaryWriter writer)

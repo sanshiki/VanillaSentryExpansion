@@ -8,8 +8,6 @@ namespace SummonerExpansionMod.ModUtils
         public int Identity;
         public int WhoAmI;
 
-        public bool IsValidIdentity => Identity >= 0;
-
         public void Clear()
         {
             Identity = -1;
@@ -25,6 +23,11 @@ namespace SummonerExpansionMod.ModUtils
         {
             Identity = projectile.identity;
             WhoAmI = projectile.whoAmI;
+        }
+
+        public bool IsValid()
+        {
+            return Identity >= 0 && WhoAmI >= 0;
         }
 
         public Projectile Get()

@@ -136,6 +136,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         protected float lastError = 0f;
 
+        protected int TargetId = -1;
+
         public FlameburstShotOverride()
         {
             RegisterFlags["AI"] = true;
@@ -147,10 +149,30 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         public override void AI(Projectile projectile)
         {
-            // get target
-            int targetId = (int)projectile.ai[0];
-            NPC target = targetId != -1 ? Main.npc[targetId] : null;
+            // // get target
+            // int targetId = (int)projectile.ai[0];
+            // NPC target = targetId != -1 ? Main.npc[targetId] : null;
 
+            // if(target == null || !target.active || (target.Center - projectile.Center).Length() > HOMING_RANGE)
+            // {
+            //     float spd = (float)Math.Min(projectile.velocity.Length() + 0.5f, HOMING_SPEED);
+            //     projectile.velocity = projectile.velocity.SafeNormalize(Vector2.Zero) * spd;
+            //     return;
+            // }
+
+            if(TargetId == -1)
+            {
+                NPC targetNPC = MinionAIHelper.SearchForTargets(
+                    Main.player[projectile.owner], 
+                    projectile, 
+                    HOMING_RANGE, 
+                    true, 
+                    null).TargetNPC;
+
+                TargetId = targetNPC != null ? targetNPC.whoAmI : -1;
+            }
+
+            NPC target = TargetId != -1 ? Main.npc[TargetId] : null;
             if(target == null || !target.active || (target.Center - projectile.Center).Length() > HOMING_RANGE)
             {
                 float spd = (float)Math.Min(projectile.velocity.Length() + 0.5f, HOMING_SPEED);
@@ -158,12 +180,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 return;
             }
 
-            // NPC target = MinionAIHelper.SearchForTargets(
-            //     Main.player[projectile.owner], 
-            //     projectile, 
-            //     HOMING_RANGE, 
-            //     true, 
-            //     null).TargetNPC;
+            MinionAIHelper.HomeinToTarget(projectile, target.Center, HOMING_SPEED, HOMING_INERTIA);
         }
     }
 
@@ -236,22 +253,15 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     Vector2 BulletVelocity = direction * BULLET_SPEED_1 * (Enhanced ? SPEED_FACTOR : 1f);
                     Vector2 bulletOffset = new Vector2(0, -20f);
 
-                    Projectile proj = Projectile.NewProjectileDirect(projectile.GetSource_FromThis(), 
-                                            projectile.Center + bulletOffset, 
-                                            BulletVelocity, 
-                                            ProjectileID.DD2FlameBurstTowerT1Shot, 
-                                            projectile.damage, 
-                                            projectile.knockBack, 
-                                            projectile.owner);
-
-                    // transfer target to the new projectile
-                    if(target != null)
+                    if(projectile.owner == Main.myPlayer)
                     {
-                        proj.ai[0] = target.whoAmI;
-                    }
-                    else
-                    {
-                        proj.ai[0] = -1;
+                        Projectile proj = Projectile.NewProjectileDirect(projectile.GetSource_FromThis(), 
+                                                projectile.Center + bulletOffset, 
+                                                BulletVelocity, 
+                                                ProjectileID.DD2FlameBurstTowerT1Shot, 
+                                                projectile.damage, 
+                                                projectile.knockBack, 
+                                                projectile.owner);
                     }
                 }
             }
@@ -339,22 +349,15 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     Vector2 BulletVelocity = direction * BULLET_SPEED_2 * (Enhanced ? SPEED_FACTOR : 1f);
                     Vector2 bulletOffset = new Vector2(0, -20f);
 
-                    Projectile proj = Projectile.NewProjectileDirect(projectile.GetSource_FromThis(), 
-                                            projectile.Center + bulletOffset, 
-                                            BulletVelocity, 
-                                            ProjectileID.DD2FlameBurstTowerT2Shot, 
-                                            projectile.damage, 
-                                            projectile.knockBack, 
-                                            projectile.owner);
-
-                    // transfer target to the new projectile
-                    if(target != null)
+                    if(projectile.owner == Main.myPlayer)
                     {
-                        proj.ai[0] = target.whoAmI;
-                    }
-                    else
-                    {
-                        proj.ai[0] = -1;
+                        Projectile proj = Projectile.NewProjectileDirect(projectile.GetSource_FromThis(), 
+                                                projectile.Center + bulletOffset, 
+                                                BulletVelocity, 
+                                                ProjectileID.DD2FlameBurstTowerT2Shot, 
+                                                projectile.damage, 
+                                                projectile.knockBack, 
+                                                projectile.owner);
                     }
                 }
             }
@@ -442,22 +445,15 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     Vector2 BulletVelocity = direction * BULLET_SPEED_3 * (Enhanced ? SPEED_FACTOR : 1f);
                     Vector2 bulletOffset = new Vector2(0, -20f);
 
-                    Projectile proj = Projectile.NewProjectileDirect(projectile.GetSource_FromThis(), 
-                                            projectile.Center + bulletOffset, 
-                                            BulletVelocity, 
-                                            ProjectileID.DD2FlameBurstTowerT3Shot, 
-                                            projectile.damage, 
-                                            projectile.knockBack, 
-                                            projectile.owner);
-
-                    // transfer target to the new projectile
-                    if(target != null)
+                    if(projectile.owner == Main.myPlayer)
                     {
-                        proj.ai[0] = target.whoAmI;
-                    }
-                    else
-                    {
-                        proj.ai[0] = -1;
+                        Projectile proj = Projectile.NewProjectileDirect(projectile.GetSource_FromThis(), 
+                                                projectile.Center + bulletOffset, 
+                                                BulletVelocity, 
+                                                ProjectileID.DD2FlameBurstTowerT3Shot, 
+                                                projectile.damage, 
+                                                projectile.knockBack, 
+                                                projectile.owner);
                     }
                 }
             }

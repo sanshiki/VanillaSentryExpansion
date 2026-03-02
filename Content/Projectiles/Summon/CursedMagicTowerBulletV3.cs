@@ -213,87 +213,25 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             // modifiers.SetMaxDamage(0);
         }
 
-        // public override void OnHitByProjectile(Projectile projectile, NPC.HitInfo hit, int damageDone)
-        // {
-        //     if(projectile.owner == Main.myPlayer)
-        //     {
-        //         MouseWroldPosX = Main.MouseWorld.X;
-        //         MouseWroldPosY = Main.MouseWorld.Y;
-        //     }
-
-        //     if (projectile.owner < 255 &&
-        //         projectile.owner == ownerId &&
-        //         hit.DamageType == DamageClass.SummonMeleeSpeed)
-        //     {
-        //         NPC.ai[1] = 1f;
-        //         NPC.ai[2] = (float)(damageDone * 0.8f);
-        //         // Player owner = Main.player[NPC.target];
-        //         // if(owner != null && NPC.ai[2] >= 0 && Main.npc[(int)NPC.ai[2]].active)
-        //         // {
-        //         //     owner.MinionAttackTargetNPC = (int)NPC.ai[2];
-        //         // }
-                
-        //         Vector2 MouseWroldPos = new Vector2(MouseWroldPosX, MouseWroldPosY);
-        //         NPC targetNPC = null;
-        //         float minDist = float.MaxValue;
-        //         foreach (var npc in Main.ActiveNPCs)
-		// 		{
-		// 			bool canBeChased = npc.CanBeChasedBy(projectile);
-		// 			if (canBeChased && npc.active)
-		// 			{
-		// 				if (Vector2.Distance(npc.Center, MouseWroldPos) < 500f && Vector2.Distance(npc.Center, MouseWroldPos) < minDist)
-		// 				{
-		// 					targetNPC = npc;
-		// 					minDist = Vector2.Distance(npc.Center, MouseWroldPos);
-		// 				}
-		// 			}
-		// 		}
-        //         // Dust.QuickDustLine(targetNPC.Center, MouseWroldPos, 10f, Color.Red);
-        //         Player owner = Main.player[ownerId];
-        //         if(owner != null && targetNPC != null)
-        //         {
-        //             owner.MinionAttackTargetNPC = targetNPC.whoAmI;
-        //         }
-                
-
-        //         Dying = true;
-        //         Main.NewText("onhitbyprojectile dead triggerred");
-        //     }
-        //     else
-        //     {
-        //         NPC.life = NPC.lifeMax;
-        //     }
-
-        //     NPC.netUpdate = true;
-
-        //     Main.NewText("onhitbyprojectile: " + "mouseworldpos: " + MouseWroldPosX + " " + MouseWroldPosY + " ownerid: " + ownerId);
-
-        //     string side =
-        //         Main.netMode == NetmodeID.Server ? "SERVER" :
-        //         Main.netMode == NetmodeID.MultiplayerClient ? "CLIENT" :
-        //         "SINGLE";
-
-        //     Mod.Logger.Info($"[{side}] onhitbyprojectile triggered");
-        // }
-
-        public override bool CheckDead()
+        public override void OnHitByProjectile(Projectile projectile, NPC.HitInfo hit, int damageDone)
         {
             Player player = Main.player[ownerId];
             bool HitByOwner = TIME_LEFT - (int)NPC.ai[0] > 0;
-            // int HitDamage = (int)NPC.ai[2];
-            // Main.NewText("HitByOwner: " + HitByOwner + " HitDamage: " + HitDamage);
-            if (player.whoAmI == Main.myPlayer && HitByOwner)
+            if(projectile.owner == Main.myPlayer && HitByOwner)
             {
-                
-                Vector2 dir = (Main.MouseWorld - NPC.Center).SafeNormalize(Vector2.UnitX);
+                Vector2 MousePos = Main.MouseWorld;
+                Vector2 PlayerMouseDir = (MousePos - player.Center).SafeNormalize(Vector2.UnitX);
+                Vector2 NPCMouseDir = player.Center + PlayerMouseDir * 750f;
+                Vector2 dir = (NPCMouseDir - NPC.Center).SafeNormalize(Vector2.UnitX);
+
+                int ExtraDamage = damageDone;
 
                 Projectile.NewProjectile(
                     NPC.GetSource_Death(),
                     NPC.Center,
                     dir * 40f,
                     ModContent.ProjectileType<CursedMagicTowerBulletV3>(),
-                    (int)(damage/* *HitDamage */), (int)knockBack, player.whoAmI);
-
+                    (int)(damage + ExtraDamage/* *HitDamage */), (int)knockBack, player.whoAmI);
 
                 NPC targetNPC = null;
                 float minDist = float.MaxValue;
@@ -315,6 +253,49 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     player.MinionAttackTargetNPC = targetNPC.whoAmI;
                 }
             }
+        }
+
+        public override bool CheckDead()
+        {
+            Player player = Main.player[ownerId];
+            bool HitByOwner = TIME_LEFT - (int)NPC.ai[0] > 0;
+            // int HitDamage = (int)NPC.ai[2];
+            // Main.NewText("HitByOwner: " + HitByOwner + " HitDamage: " + HitDamage);
+            // if (player.whoAmI == Main.myPlayer && HitByOwner)
+            // {
+            //     // Vector2 MousePos = Main.MouseWorld;
+            //     // Vector2 PlayerMouseDir = (MousePos - player.Center).SafeNormalize(Vector2.UnitX);
+            //     // Vector2 NPCMouseDir = player.Center + PlayerMouseDir * 750f;
+            //     // Vector2 dir = (NPCMouseDir - NPC.Center).SafeNormalize(Vector2.UnitX);
+
+            //     // Projectile.NewProjectile(
+            //     //     NPC.GetSource_Death(),
+            //     //     NPC.Center,
+            //     //     dir * 40f,
+            //     //     ModContent.ProjectileType<CursedMagicTowerBulletV3>(),
+            //     //     (int)(damage/* *HitDamage */), (int)knockBack, player.whoAmI);
+
+
+            //     NPC targetNPC = null;
+            //     float minDist = float.MaxValue;
+            //     foreach (var npc in Main.ActiveNPCs)
+			// 	{
+			// 		bool canBeChased = npc.CanBeChasedBy(player);
+			// 		if (canBeChased && npc.active && npc.type != NPC.type)
+			// 		{
+			// 			if (Vector2.Distance(npc.Center, Main.MouseWorld) < 500f && Vector2.Distance(npc.Center, Main.MouseWorld) < minDist)
+			// 			{
+			// 				targetNPC = npc;
+			// 				minDist = Vector2.Distance(npc.Center, Main.MouseWorld);
+			// 			}
+			// 		}
+			// 	}
+            //     // Dust.QuickDustLine(targetNPC.Center, MouseWroldPos, 10f, Color.Red);
+            //     if(player != null && targetNPC != null)
+            //     {
+            //         player.MinionAttackTargetNPC = targetNPC.whoAmI;
+            //     }
+            // }
 
             if(!MinionAIHelper.IsServer())
             {
