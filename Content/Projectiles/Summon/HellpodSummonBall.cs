@@ -35,8 +35,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         // private variables
 
-        private int SignalProjectileId = 0;
-        private int HellpodProjectileId = 0;
+        private ProjectileReference SignalProjectileRef;
+        private ProjectileReference HellpodProjectileRef;
 
         public override string Texture => ModGlobal.MOD_TEXTURE_PATH + "Projectiles/HellpodSummonBall";
 
@@ -55,6 +55,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.timeLeft = 600;
             // Projectile.netImportant = true;
             // Projectile.sentry = true;
+            SignalProjectileRef.Clear();
+            HellpodProjectileRef.Clear();
         }
 
         public override void AI()
@@ -76,19 +78,20 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 {
                     if(Projectile.owner == Main.myPlayer)
                     {
-                        SignalProjectileId = Projectile.NewProjectile(
+                        Projectile signalProjectile = Projectile.NewProjectileDirect(
                             Projectile.GetSource_FromThis(),
-                            Projectile.Center + new Vector2(0, -SIGNAL_HEIGHT/2f),
+                            Projectile.Center + new Vector2(0, -SIGNAL_HEIGHT / 2f),
                             Vector2.Zero,
                             ModContent.ProjectileType<HellpodSummonSignal>(),
                             0,
                             0,
                             Projectile.owner
                         );
+                        SignalProjectileRef.Set(signalProjectile);
                     }
                     SoundEngine.PlaySound(ModSounds.HellpodSignal_1, Projectile.Center);
                     SignalSpawned = true;
-                    Projectile.netUpdate = true;
+                    MinionAIHelper.SetProjectileNetUpdate(Projectile);
                 }
                 Projectile.velocity = Vector2.Zero;
                 
@@ -100,7 +103,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     {
                         if(Projectile.owner == Main.myPlayer)
                         {
-                            HellpodProjectileId = Projectile.NewProjectile(
+                            Projectile hellpodProjectile_ = Projectile.NewProjectileDirect(
                                 Projectile.GetSource_FromThis(),
                                 Projectile.Center + new Vector2(0, -HELLPOD_SUMMON_HEIGHT),
                                 new Vector2(0, 10f),
@@ -109,13 +112,19 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                                 HELLPOD_KNOCKBACK,
                                 Projectile.owner
                             );
+                            HellpodProjectileRef.Set(hellpodProjectile_);
                         }
                         SoundEngine.PlaySound(ModSounds.HellpodSignal_2_1, Projectile.Center);
                         HellpodSpawned = true;
-                        Projectile.netUpdate = true;
+                        MinionAIHelper.SetProjectileNetUpdate(Projectile);
                     }
-                    Projectile HellpodProjectile = Main.projectile[HellpodProjectileId];
-                    Vector2 Ball2Hellpod = HellpodProjectile.Center - Projectile.Center;
+                    Projectile hellpodProjectile = HellpodProjectileRef.Get();
+                    if (hellpodProjectile == null || !hellpodProjectile.active)
+                    {
+                        Projectile.Kill();
+                        return;
+                    }
+                    Vector2 Ball2Hellpod = hellpodProjectile.Center - Projectile.Center;
                     // hellpod is arrived
                     if(Ball2Hellpod.Length() < 10f || Ball2Hellpod.Y > 0)
                     {
@@ -166,7 +175,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                                 
                             );
                         }
-                        Projectile.netUpdate = true;
+                        MinionAIHelper.SetProjectileNetUpdate(Projectile);
                         // Main.NewText("sentry created: " + SummonTargetID);
 
                         Player player = Main.player[Projectile.owner];
@@ -215,7 +224,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             if (Projectile.velocity.X != oldVelocity.X && Math.Abs(oldVelocity.X) > 0.1f)
             {
                 Projectile.velocity.X = -oldVelocity.X * BOUNCE_DECAY;
-                Projectile.netUpdate = true;
+                MinionAIHelper.SetProjectileNetUpdate(Projectile);
             }
             if (Projectile.velocity.Y != oldVelocity.Y && Math.Abs(oldVelocity.Y) > 0.1f)
             {
@@ -229,7 +238,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 else
                 {
                     Projectile.velocity.Y = -oldVelocity.Y * BOUNCE_DECAY;
-                    Projectile.netUpdate = true;
+                    MinionAIHelper.SetProjectileNetUpdate(Projectile);
                 }
             }
             
@@ -264,12 +273,30 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         public override void Kill(int timeLeft)
         {
-            Projectile SignalProjectile = Main.projectile[SignalProjectileId];
-            Projectile HellpodProjectile = Main.projectile[HellpodProjectileId];
-            if(SignalProjectile != null && SignalProjectile.type == ModContent.ProjectileType<HellpodSummonSignal>()) SignalProjectile.Kill();
-            if(HellpodProjectile != null && HellpodProjectile.type == ModContent.ProjectileType<Hellpod>()) HellpodProjectile.Kill();
-            SignalProjectile.netUpdate = true;
-            HellpodProjectile.netUpdate = true;
+            Projectile signalProjectile = SignalProjectileRef.Get();
+            Projectile hellpodProjectile = HellpodProjectileRef.Get();
+            if (signalProjectile != null && signalProjectile.type == ModContent.ProjectileType<HellpodSummonSignal>())
+            {
+                signalProjectile.Kill();
+                MinionAIHelper.SetProjectileNetUpdate(signalProjectile);
+            }
+            if (hellpodProjectile != null && hellpodProjectile.type == ModContent.ProjectileType<Hellpod>())
+            {
+                hellpodProjectile.Kill();
+                MinionAIHelper.SetProjectileNetUpdate(hellpodProjectile);
+            }
+        }
+
+        public override void SendExtraAI(System.IO.BinaryWriter writer)
+        {
+            SignalProjectileRef.SendExtraAI(writer);
+            HellpodProjectileRef.SendExtraAI(writer);
+        }
+
+        public override void ReceiveExtraAI(System.IO.BinaryReader reader)
+        {
+            SignalProjectileRef.ReceiveExtraAI(reader);
+            HellpodProjectileRef.ReceiveExtraAI(reader);
         }
     }
 }

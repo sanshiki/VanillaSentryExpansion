@@ -86,10 +86,14 @@ namespace SummonerExpansionMod.Content.Items.Accessories
                 {
                     for (int i = 0; i < Main.maxProjectiles; i++)
                     {
+                        Console.WriteLine("Projectile index: "+i);
                         Projectile projectile = Main.projectile[i];
+                        Console.WriteLine("Projectile: "+projectile.whoAmI);
                         if (projectile.active && projectile.owner == player.whoAmI && projectile.sentry)
                         {
+                            Console.WriteLine("Killing projectile: "+projectile.whoAmI);
                             projectile.Kill();
+                            Console.WriteLine("Killed projectile: "+projectile.whoAmI);
                         }
                     }
                 }

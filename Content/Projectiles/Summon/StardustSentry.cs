@@ -56,14 +56,14 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         private NonUniformFloatIntPacker extraPacker = new NonUniformFloatIntPacker(
             BULLET_NUM, // bulletCnt
-            2, // canShoot
-            Main.maxNPCs // SignalID
+            2 // canShoot
         );
 
         /* -------------------- variables -------------------- */
         private float currentFrameSpeed = (float)MAX_FRAME_SPEED;
         private float targetCenterX = 0f;
         private float targetCenterY = 0f;
+        private ProjectileReference SignalRef;
 
         public override void SetStaticDefaults()
         {
@@ -98,7 +98,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             int[] extra_decode_values = extraPacker.Decode(Projectile.ai[1]);
             int bulletCnt = extra_decode_values[0];
             bool canShoot = extra_decode_values[1] != 0;
-            int SignalID = extra_decode_values[2];
             // Float in the air
             Vector2 vel = Projectile.velocity;
             Vector2 vel_dir = vel.SafeNormalize(Vector2.Zero);
@@ -141,10 +140,10 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 targetCenterY = target.Center.Y;
                 if (fireTimer >= fireInterval)
                 {
-                    EmitSignal(target, ref SignalID);
+                    EmitSignal(target);
                     fireTimer = 0;
                     signalTimer = 0;
-                    Projectile.netUpdate = true;
+                    MinionAIHelper.SetProjectileNetUpdate(Projectile);
                 }
                 currentFrameSpeed -= 0.1f;
                 if (currentFrameSpeed < MIN_FRAME_SPEED) currentFrameSpeed = MIN_FRAME_SPEED;
@@ -156,14 +155,10 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             }
 
             // check if signal available
-            if (SignalID >= 0)
+            Projectile signalProj = SignalRef.Get();
+            if(signalProj != null)
             {
-                Projectile signalProj = Main.projectile[SignalID];
-                if (!signalProj.active || signalProj.type != ModProjectileID.StardustSentrySignal)   // not available, set to -1
-                {
-                    // SignalID = -1;
-                }
-                else // available
+                if(signalProj.active && signalProj.type == ModProjectileID.StardustSentrySignal)
                 {
                     signalProj.Center = Projectile.Center + new Vector2(0, -Projectile.height / 2f - 1000f / 2f);
                     signalProj.velocity = Projectile.velocity;
@@ -212,7 +207,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                         canShoot = false;
                     }
 
-                    Projectile.netUpdate = true;
+                    MinionAIHelper.SetProjectileNetUpdate(Projectile);
                 }
             }
 
@@ -223,10 +218,10 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             UpdateAnimation(target);
 
             Projectile.ai[0] = timerPacker.Encode(fireTimer, signalTimer, bulletTimer, teleportTimer);
-            Projectile.ai[1] = extraPacker.Encode(bulletCnt, canShoot ? 1 : 0, SignalID);
+            Projectile.ai[1] = extraPacker.Encode(bulletCnt, canShoot ? 1 : 0);
         }
 
-        private void EmitSignal(NPC target, ref int SignalID)
+        private void EmitSignal(NPC target)
         {
             Vector2 SignalOffset = new Vector2(0, -Projectile.height/2f-1000f/2f);
             if(Projectile.owner == Main.myPlayer)
@@ -240,7 +235,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     0,
                     Projectile.owner
                 );
-                SignalID = proj.whoAmI;
+                SignalRef.Set(proj);
             }
         }
 
@@ -271,7 +266,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
             // Teleport if we found a better position
             Projectile.position = bestPosition;
-            Projectile.netUpdate = true;
+            MinionAIHelper.SetProjectileNetUpdate(Projectile);
 
             // Optional: Visual or sound effect
             if (Main.netMode != NetmodeID.Server)
@@ -339,15 +334,11 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         public override void Kill(int timeLeft)
         {
             int[] extra_decode_values = extraPacker.Decode(Projectile.ai[1]);
-            int SignalID = extra_decode_values[2];
-            if (SignalID >= 0)
+            Projectile signalProj = SignalRef.Get();
+            if (signalProj != null)
             {
-                Projectile signalProj = Main.projectile[SignalID];
-                if (!signalProj.active || signalProj.type != ModProjectileID.StardustSentrySignal)   // not available, set to -1
-                {
-                    SignalID = -1;
+                if(signalProj.active)
                     signalProj.Kill();
-                }
             }
         }
         public override bool PreDraw(ref Color lightColor)
@@ -396,6 +387,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             writer.Write(currentFrameSpeed);
             writer.Write(targetCenterX);
             writer.Write(targetCenterY);
+            SignalRef.SendExtraAI(writer);
         }
 
         public override void ReceiveExtraAI(BinaryReader reader)
@@ -403,6 +395,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             currentFrameSpeed = reader.ReadSingle();
             targetCenterX = reader.ReadSingle();
             targetCenterY = reader.ReadSingle();
+            SignalRef.ReceiveExtraAI(reader);
         }
     }
 }
