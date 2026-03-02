@@ -175,10 +175,9 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                             Projectile.damage,
                             Projectile.knockBack,
                             Projectile.owner,
-                            14  // self damage
+                            25  // self damage
                         );
 
-                        bullet.ArmorPenetration = 15;
                     }
 
                     shootTimer = 0; // Reset shoot animation

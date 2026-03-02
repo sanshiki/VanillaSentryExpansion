@@ -20,7 +20,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         public override string TexturePath => "Terraria/Images/Projectile_" + ProjectileID.Bullet;
 
-        public int SelfDamage = 5;
+        public int SelfDamage = 10;
         public int SelfArmorPenetration = 10;
 
         private bool DamageDebug = false;
@@ -41,18 +41,13 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.hostile = false;
         }
 
-        public override void OnSpawn(IEntitySource source)
-        {
-            Projectile.ai[0] = 5f;  // SelfDamage
-            Projectile.ai[1] = 10f; // SelfArmorPenetration
-        }
-
         public override void AI()
         {
             Player player = Main.player[Projectile.owner];
-            int SelfDamage = (int)Projectile.ai[0];
+            SelfDamage = (int)Projectile.ai[0];
             if (MinionAIHelper.DoHarmToSelf(player, Projectile, SelfDamage, Projectile.knockBack))
             {
+                Main.NewText("SelfDamage: " + SelfDamage);
                 Projectile.Kill(); // 避免每帧重复触发
             }
         }
@@ -80,8 +75,6 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         public override void OnSpawn(IEntitySource source)
         {
             Projectile.ai[0] = 0f;  // hitCount
-            Projectile.ai[1] = 50f;  // SelfDamage
-            Projectile.ai[2] = 5f; // SelfArmorPenetration
         }
 
 

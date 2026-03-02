@@ -193,8 +193,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                             Projectile.knockBack,
                             Projectile.owner,
                             0,
-                            80, // self damage
-                            20  // self armor penetration
+                            70 // self damage
                         );
                     }
 

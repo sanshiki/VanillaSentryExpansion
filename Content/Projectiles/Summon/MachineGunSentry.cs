@@ -172,7 +172,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                             Projectile.damage,
                             Projectile.knockBack,
                             Projectile.owner,
-                            8   // self damage
+                            14   // self damage
                         );
 
                         // Main.NewText("Damage: " + Projectile.damage + "Bullet Damage: " + bullet.damage);
