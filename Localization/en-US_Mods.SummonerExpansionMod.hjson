@@ -188,6 +188,7 @@ Items: {
 			'''
 			Summons a Honey Comb sentry
 			Releases bees that chase enemies
+			Summon tag damage -50%
 			'''
 	}
 
@@ -223,7 +224,12 @@ Items: {
 
 	MachineGunSentrySummon: {
 		DisplayName: MG-43 Machine Gun Sentry
-		Tooltip: Summons an Machine Gun sentry that sprays enemies
+		Tooltip:
+			'''
+			Summons an Machine Gun sentry that sprays enemies
+			Summon tag damage -75%
+			Armor penetration + 5
+			'''
 	}
 
 	RocketSentrySummon: {
@@ -242,6 +248,8 @@ Items: {
 			'''
 			Summons an auto gatling sentry
 			Sprays enemies at ultra-high speed
+			Summon tag damage -75%
+			Armor penetration + 15
 			"You have been sent to military court"
 			'''
 	}

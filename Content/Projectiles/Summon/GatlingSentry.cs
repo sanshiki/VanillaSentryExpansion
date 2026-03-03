@@ -175,8 +175,10 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                             Projectile.damage,
                             Projectile.knockBack,
                             Projectile.owner,
-                            25  // self damage
+                            14,
+                            25 // self damage
                         );
+                        bullet.ArmorPenetration = 15;
 
                     }
 
@@ -184,7 +186,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
                     Projectile.netUpdate = true;
 
-                    SoundEngine.PlaySound(SoundID.Item41, Projectile.Center);
+                    SoundStyle style = new SoundStyle("Terraria/Sounds/Item_41") with { Volume = .49f, };
+                    SoundEngine.PlaySound(style, Projectile.Center);
                 }
             }
             else

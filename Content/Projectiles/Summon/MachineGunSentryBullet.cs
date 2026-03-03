@@ -44,10 +44,10 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         public override void AI()
         {
             Player player = Main.player[Projectile.owner];
-            SelfDamage = (int)Projectile.ai[0];
+            SelfDamage = (int)Projectile.ai[1];
             if (MinionAIHelper.DoHarmToSelf(player, Projectile, SelfDamage, Projectile.knockBack))
             {
-                Main.NewText("SelfDamage: " + SelfDamage);
+                // Main.NewText("SelfDamage: " + SelfDamage);
                 Projectile.Kill(); // 避免每帧重复触发
             }
         }
