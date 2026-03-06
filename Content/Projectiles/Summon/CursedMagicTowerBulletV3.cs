@@ -224,7 +224,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 Vector2 NPCMouseDir = player.Center + PlayerMouseDir * 750f;
                 Vector2 dir = (NPCMouseDir - NPC.Center).SafeNormalize(Vector2.UnitX);
 
-                int ExtraDamage = damageDone;
+                int ExtraDamage = (int)Math.Min(damageDone*0.5f, damage*2);
 
                 Projectile.NewProjectile(
                     NPC.GetSource_Death(),
@@ -240,7 +240,11 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 					bool canBeChased = npc.CanBeChasedBy(player);
 					if (canBeChased && npc.active && npc.type != NPC.type)
 					{
-						if (Vector2.Distance(npc.Center, Main.MouseWorld) < 500f && Vector2.Distance(npc.Center, Main.MouseWorld) < minDist)
+						if (Vector2.Distance(npc.Center, Main.MouseWorld) < 500f && 
+                            Vector2.Distance(npc.Center, Main.MouseWorld) < minDist &&
+                            npc.type != ModContent.NPCType<CursedMagicTowerBulletNPC>() &&
+                            Collision.CanHitLine(player.Center, 8, 8, npc.Center, npc.width, npc.height)
+                            )
 						{
 							targetNPC = npc;
 							minDist = Vector2.Distance(npc.Center, Main.MouseWorld);
@@ -428,7 +432,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 Main.player[Projectile.owner],
                 Projectile,
                 500f,
-                false,
+                true,
                 n => n.type != ModContent.NPCType<CursedMagicTowerBulletNPC>()).TargetNPC;
 
             if(target != null)

@@ -27,8 +27,8 @@ namespace SummonerExpansionMod.Content.Items.Weapons.Summon
 
         public override void SetDefaults()
         {
-            Item.damage = 58;
-            Item.knockBack = 8f;
+            Item.damage = 35;
+            Item.knockBack = 6f;
             // Item.mana = 10; // mana cost
             Item.width = 32;
             Item.height = 32;

@@ -22,7 +22,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         protected const float CONTROL_P = 0.15f;
         protected const float MAX_RANGE = 800f;
         protected const float BULLET_SPEED = 20f;
-        protected const float PRED_BULLET_SPEED = 15f;
+        protected const float PRED_BULLET_SPEED = 20f;
         protected const bool USE_PREDICTION = true;
         protected const int SHOOT_INTERVAL_LV1 = (int)(60 * 2.67f);
         protected const int SHOOT_INTERVAL_LV2 = (int)(60 * 1.67f);
@@ -97,7 +97,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             
         }
 
-        protected void UpdateAnimation(Projectile projectile)
+        protected void UpdateAnimation(Projectile projectile, bool resetDir=false)
         {
             // calculate turn speed using PID control
             float TargetAngle = TargetDirection.ToRotation();
@@ -106,7 +106,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             DeltaAngle = (DeltaAngle + ModGlobal.PI_FLOAT) % ModGlobal.TWO_PI_FLOAT - ModGlobal.PI_FLOAT;
             float TurnSpeed = DeltaAngle * CONTROL_P;
             TurnSpeed = MathHelper.Clamp(TurnSpeed, -MAX_TURN_SPEED, MAX_TURN_SPEED);
-            projectile.rotation = CurrentAngle + TurnSpeed;
+            if(!resetDir) projectile.rotation = CurrentAngle + TurnSpeed;
 
             // face towards target
             projectile.spriteDirection = Math.Cos(CurrentAngle) > 0 ? 1 : -1;
@@ -141,7 +141,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 projectile, 
                 MAX_RANGE, 
                 true, 
-                n => (n.Center - projectile.Center).ToRotation() <= ModGlobal.PI_FLOAT/4f || (n.Center - projectile.Center).ToRotation() >= 3f*ModGlobal.PI_FLOAT/4f).TargetNPC;
+                n => ((n.Center - projectile.Center).ToRotation() <= ModGlobal.PI_FLOAT/4f || (n.Center - projectile.Center).ToRotation() >= 3f*ModGlobal.PI_FLOAT/4f) && (n.Center - projectile.Center).Length() >= 50f).TargetNPC;
 
 
             int shootInterval = GetShootInterval(Main.player[projectile.owner]);
@@ -168,6 +168,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             }
 
             // keep shooting even lose target
+            bool resetDir = false;
             if(TimerDuringShoot >= 0)
             {
                 TimerDuringShoot++;
@@ -177,16 +178,22 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 }
                 else if (TimerDuringShoot == SHOOT_ANIMATION_SPEED * FRAME_COUNT / 2)
                 {
+                    projectile.rotation = TargetDirection.ToRotation();
+                    resetDir = true;
                     Vector2 BulletVelocity = projectile.rotation.ToRotationVector2() * BULLET_SPEED;
                     Vector2 bulletOffset = new Vector2(10f, 0).RotatedBy(projectile.rotation);
 
-                    Projectile.NewProjectile(projectile.GetSource_FromThis(), 
-                                            projectile.Center + bulletOffset, 
-                                            BulletVelocity, 
-                                            ProjectileID.DD2BallistraProj, 
-                                            projectile.damage, 
-                                            projectile.knockBack, 
-                                            projectile.owner);
+                    if(projectile.owner == Main.myPlayer)
+                    {
+                        Projectile.NewProjectile(projectile.GetSource_FromThis(), 
+                                                projectile.Center + bulletOffset, 
+                                                BulletVelocity, 
+                                                ProjectileID.DD2BallistraProj, 
+                                                projectile.damage, 
+                                                projectile.knockBack, 
+                                                projectile.owner);
+                    }
+                    projectile.netUpdate = true;
                 }
             }
             // else if (target == null )
@@ -200,7 +207,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 shootTimer = shootInterval;
             }
 
-            UpdateAnimation(projectile);
+            UpdateAnimation(projectile, resetDir);
 
             return false;
         }
@@ -252,6 +259,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             }
 
             // keep shooting even lose target
+            bool resetDir = false;
             if(TimerDuringShoot >= 0)
             {
                 TimerDuringShoot++;
@@ -261,6 +269,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 }
                 else if (TimerDuringShoot == SHOOT_ANIMATION_SPEED * FRAME_COUNT / 2)
                 {
+                    projectile.rotation = TargetDirection.ToRotation();
+                    resetDir = true;
                     float ProjectileOffsetAngle = (TargetPredictedDirection.ToRotation() - TargetOriginDirection.ToRotation()) / 2f;
                     ProjectileOffsetAngle = (ProjectileOffsetAngle + ModGlobal.PI_FLOAT) % ModGlobal.TWO_PI_FLOAT - ModGlobal.PI_FLOAT;
                     ProjectileOffsetAngle = (float) MathHelper.Clamp(ProjectileOffsetAngle, 0.02f, ModGlobal.PI_FLOAT/4f);
@@ -268,20 +278,24 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     Vector2 BulletVelocity_2 = new Vector2(BULLET_SPEED, 0).RotatedBy(projectile.rotation - ProjectileOffsetAngle);
                     Vector2 bulletOffset = new Vector2(10f, 0).RotatedBy(projectile.rotation);
 
-                    Projectile.NewProjectileDirect(projectile.GetSource_FromThis(), 
-                                            projectile.Center + bulletOffset, 
-                                            BulletVelocity_1, 
-                                            ProjectileID.DD2BallistraProj, 
-                                            projectile.damage, 
-                                            projectile.knockBack, 
-                                            projectile.owner);
-                    Projectile.NewProjectile(projectile.GetSource_FromThis(), 
-                                            projectile.Center + bulletOffset, 
-                                            BulletVelocity_2, 
-                                            ProjectileID.DD2BallistraProj, 
-                                            projectile.damage, 
-                                            projectile.knockBack, 
-                                            projectile.owner);
+                    if(projectile.owner == Main.myPlayer)
+                    {
+                        Projectile.NewProjectileDirect(projectile.GetSource_FromThis(), 
+                                                projectile.Center + bulletOffset, 
+                                                BulletVelocity_1, 
+                                                ProjectileID.DD2BallistraProj, 
+                                                projectile.damage, 
+                                                projectile.knockBack, 
+                                                projectile.owner);
+                        Projectile.NewProjectile(projectile.GetSource_FromThis(), 
+                                                projectile.Center + bulletOffset, 
+                                                BulletVelocity_2, 
+                                                ProjectileID.DD2BallistraProj, 
+                                                projectile.damage, 
+                                                projectile.knockBack, 
+                                                projectile.owner);
+                    }
+                    projectile.netUpdate = true;
                 }
             }
             // else if (target == null )
@@ -295,7 +309,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 shootTimer = shootInterval;
             }
 
-            UpdateAnimation(projectile);
+            UpdateAnimation(projectile, resetDir);
 
             return false;
         }
@@ -350,6 +364,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             }
 
             // keep shooting even lose target
+            bool resetDir = false;
             if(TimerDuringShoot >= 0)
             {
                 TimerDuringShoot++;
@@ -359,6 +374,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 }
                 else if (TimerDuringShoot == SHOOT_ANIMATION_SPEED * FRAME_COUNT / 2)
                 {
+                    projectile.rotation = TargetDirection.ToRotation();
+                    resetDir = true;
                     float ProjectileOffsetAngle = (TargetPredictedDirection.ToRotation() - TargetOriginDirection.ToRotation()) / 2f;
                     ProjectileOffsetAngle = (ProjectileOffsetAngle + ModGlobal.PI_FLOAT) % ModGlobal.TWO_PI_FLOAT - ModGlobal.PI_FLOAT;
                     ProjectileOffsetAngle = (float) MathHelper.Clamp(ProjectileOffsetAngle, 0.02f, ModGlobal.PI_FLOAT/4f);
@@ -367,27 +384,31 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                     Vector2 BulletVelocity_3 = new Vector2(BULLET_SPEED, 0).RotatedBy(projectile.rotation);
                     Vector2 bulletOffset = new Vector2(10f, 0).RotatedBy(projectile.rotation);
 
-                    Projectile.NewProjectile(projectile.GetSource_FromThis(), 
-                                            projectile.Center + bulletOffset, 
-                                            BulletVelocity_1, 
-                                            ProjectileID.DD2BallistraProj, 
-                                            projectile.damage, 
-                                            projectile.knockBack, 
-                                            projectile.owner);
-                    Projectile.NewProjectile(projectile.GetSource_FromThis(), 
-                                            projectile.Center + bulletOffset, 
-                                            BulletVelocity_2, 
-                                            ProjectileID.DD2BallistraProj, 
-                                            projectile.damage, 
-                                            projectile.knockBack, 
-                                            projectile.owner);
-                    Projectile.NewProjectile(projectile.GetSource_FromThis(), 
-                                            projectile.Center + bulletOffset, 
-                                            BulletVelocity_3, 
-                                            ProjectileID.DD2BallistraProj, 
-                                            projectile.damage, 
-                                            projectile.knockBack, 
-                                            projectile.owner);
+                    if(projectile.owner == Main.myPlayer)
+                    {
+                        Projectile.NewProjectile(projectile.GetSource_FromThis(), 
+                                                projectile.Center + bulletOffset, 
+                                                BulletVelocity_1, 
+                                                ProjectileID.DD2BallistraProj, 
+                                                projectile.damage, 
+                                                projectile.knockBack, 
+                                                projectile.owner);
+                        Projectile.NewProjectile(projectile.GetSource_FromThis(), 
+                                                projectile.Center + bulletOffset, 
+                                                BulletVelocity_2, 
+                                                ProjectileID.DD2BallistraProj, 
+                                                projectile.damage, 
+                                                projectile.knockBack, 
+                                                projectile.owner);
+                        Projectile.NewProjectile(projectile.GetSource_FromThis(), 
+                                                projectile.Center + bulletOffset, 
+                                                BulletVelocity_3, 
+                                                ProjectileID.DD2BallistraProj, 
+                                                projectile.damage, 
+                                                projectile.knockBack, 
+                                                projectile.owner);
+                    }
+                    projectile.netUpdate = true;
                 }
             }
             // else if (target == null )
@@ -401,7 +422,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 shootTimer = shootInterval;
             }
 
-            UpdateAnimation(projectile);
+            UpdateAnimation(projectile, resetDir);
 
             return false;
         }

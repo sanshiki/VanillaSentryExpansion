@@ -196,7 +196,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         private float lastError = 0f;
 
-        private const float DAMAGE_DECAY_FACTOR = 0.8f;
+        private const float DAMAGE_DECAY_FACTOR = 0.5f;
         private int hitCount = 0;
 
         private int TargetId = -1;

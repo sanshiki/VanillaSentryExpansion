@@ -31,11 +31,7 @@ namespace SummonerExpansionMod.Content.Items.Weapons.Summon
 
             if (item.type == ItemID.StaffoftheFrostHydra)
             {
-                item.damage = 86;
-            }
-            if (item.type == ItemID.QueenSpiderStaff)
-            {
-                item.damage = 30;
+                item.damage = 60;
             }
             if (item.type == ItemID.DD2FlameburstTowerT2Popper)
             {

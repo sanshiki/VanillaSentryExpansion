@@ -150,7 +150,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                         SoundEngine.PlaySound(SoundID.Item109, Projectile.Center);
                     }
 
-                    // if player has hive backpack, may create gient bee
+                    // if player has hive backpack, may create giant bee
                     if(hasHiveBackpack)
                     {
                         Random random = new Random();
@@ -164,7 +164,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                                     Projectile.Center,
                                     BaseVel.RotatedBy(dir),
                                     ModProjectileID.HoneyCombSentryGiantBullet,
-                                    Projectile.damage,
+                                    Projectile.damage+2,
                                     0.5f,
                                     Projectile.owner);
                             }

@@ -71,7 +71,7 @@ namespace SummonerExpansionMod.Content.Items.Weapons.Summon
         public override void AddRecipes() {
         	Recipe recipe = CreateRecipe();
             recipe.AddIngredient(ItemID.ClayPot, 1);
-            recipe.AddIngredient(ItemID.AncientBattleArmorMaterial, 2);
+            recipe.AddIngredient(ItemID.AncientBattleArmorMaterial, 1);
             recipe.AddIngredient(ItemID.SoulofLight, 7);
             recipe.AddIngredient(ItemID.SoulofNight, 7);
             recipe.AddTile(TileID.MythrilAnvil);

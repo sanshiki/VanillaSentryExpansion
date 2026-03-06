@@ -35,7 +35,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         private const float BULLET_SPEED_X = 20f;
         private const float BULLET_SPEED = 60f;
         private const float BULLET_GRAVITY = 2.0f;
-        private const float MAX_LEGAL_HEIGHT = BULLET_SPEED_Y * BULLET_SPEED_Y / (2 * BULLET_GRAVITY)*0.8f;
+        private const float MAX_LEGAL_HEIGHT = BULLET_SPEED_Y * BULLET_SPEED_Y / (2 * BULLET_GRAVITY);
         
         public override string Texture => "SummonerExpansionMod/Assets/Textures/Projectiles/SandustSentryV2";
 
@@ -60,6 +60,15 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             Projectile.DamageType = DamageClass.Summon;
             Projectile.netImportant = true;
         }
+        
+        private bool CheckTwoSegCollision(NPC npc)
+        {
+            if(Projectile.Center.Distance(npc.Center) < 300f) return true;
+            float ratio = MAX_LEGAL_HEIGHT / (npc.Center.Y - Projectile.Center.Y + 2 * MAX_LEGAL_HEIGHT);
+            Vector2 MirrorPoint = Projectile.Center + new Vector2(0, -2*MAX_LEGAL_HEIGHT);
+            Vector2 MidPoint = ratio * MirrorPoint + (1-ratio) * npc.Center;
+            return Collision.CanHitLine(Projectile.Center, 1, 1, MidPoint, 8, 8) && Collision.CanHitLine(npc.Center, 1, 1, MidPoint, 8, 8);
+        }
 
         public override void AI()
         {
@@ -80,7 +89,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 Projectile, 
                 1000f, 
                 false, 
-                n => n.Center.Y < Projectile.Center.Y + MAX_LEGAL_HEIGHT).TargetNPC;
+                n => n.Center.Y < Projectile.Center.Y + MAX_LEGAL_HEIGHT*0.8f && CheckTwoSegCollision(n)).TargetNPC;
 
             if (target != null)
             {

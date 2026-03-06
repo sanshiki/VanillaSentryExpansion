@@ -57,7 +57,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 owner,
                 Projectile,
                 1500f,
-                false,
+                true,
                 null,
                 false).TargetNPC;
             if(target != null)

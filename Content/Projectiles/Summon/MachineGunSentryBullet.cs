@@ -61,7 +61,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         private bool DamageDebug = false;
 
-        private const float DAMAGE_DECAY_FACTOR = 0.6f;
+        private const float DAMAGE_DECAY_FACTOR = 0.5f;
 
         public override void SetDefaults()
         {

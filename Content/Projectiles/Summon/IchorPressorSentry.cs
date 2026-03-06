@@ -91,7 +91,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 owner, 
                 Projectile, 
                 600f, 
-                false, 
+                true, 
                 null).TargetNPC;
 
 
