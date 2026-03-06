@@ -54,6 +54,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         protected bool BladShotInited = false;
         protected bool SoundPlayed = false;
         protected Vector2 CursorPos;
+        protected float AUTO_RECALL_DIST = 1500f;
+        protected bool HasCheckedAutoRecall = false;
 
         protected override void CustomSentryRecall(SentryRecallInfo info)
         {
@@ -91,19 +93,9 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         public override void AI()
         {
             base.AI();
+            Player player = Main.player[Projectile.owner];
             if(State == WAVE_STATE)
             {
-                // bool bladeShotExists = false;
-                // for(int i = 0; i < Main.maxProjectiles; i++)
-                // {
-                //     Projectile projectile = Main.projectile[i];
-                //     if(projectile.type == ModProjectileID.OneTrueFlagBladeShot && projectile.active && projectile.owner == Projectile.owner)
-                //     {
-                //         bladeShotExists = true;
-                //         break;
-                //     }
-                // }
-                Player player = Main.player[Projectile.owner];
                 if(!BladShotInited/*  && !bladeShotExists */ && Projectile.owner == Main.myPlayer)
                 {
                     Projectile bladeShot = Projectile.NewProjectileDirect(
@@ -124,6 +116,40 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                         bladeShot_.FlagProjectileRef = new ProjectileReference(Projectile);
                     }
                 }
+
+                if(player.GetModPlayer<OneTrueFlagAutoRecallPlayer>().hasAutoRecall && !HasCheckedAutoRecall)
+                {
+                    bool needRecall = false;
+                    for(int i = 0;i < Main.maxProjectiles; i++)
+                    {
+                        Projectile proj = Main.projectile[i];
+                        if(!proj.active || proj.owner != Projectile.owner || !proj.sentry) continue;
+                        float dist = (player.Center - proj.Center).Length();
+                        if(dist >= AUTO_RECALL_DIST && dist <= SENTRY_RECALL_MAX_DIST)
+                        {
+                            needRecall = true;
+                            MinionAIHelper.SetProjectileNetUpdate(Projectile);
+                            player.GetModPlayer<OneTrueFlagAutoRecallPlayer>().hasAutoRecall = false;
+                            break;
+                        }
+                    }
+                    Vector2 PlayerPredictVec = new Vector2(player.velocity.X, 0f) * 75f;
+                    PlayerPredictVec = PlayerPredictVec.SafeNormalize(Vector2.UnitX) * Math.Min(PlayerPredictVec.Length(), 1000f);
+                    Vector2 RecallCenter = player.Center + PlayerPredictVec;
+                    Dust.QuickDust(RecallCenter, Color.Green);
+                    if(needRecall) IssueSentryRecallCommands(RecallCenter);
+                    HasCheckedAutoRecall = true;
+                }
+
+            }
+            else if(State == RAISE_STATE)
+            {
+                int RaiseTime = timerPacker.Get(Projectile.ai[0],RaiseTimeBit);
+                if(RaiseTime >= TimeLeftRaise * RAISE_BUFF_TIME_COEFF)
+                {
+                    if(!player.GetModPlayer<OneTrueFlagAutoRecallPlayer>().hasAutoRecall) MinionAIHelper.SetProjectileNetUpdate(Projectile);
+                    player.GetModPlayer<OneTrueFlagAutoRecallPlayer>().hasAutoRecall = true;
+                }
             }
         }
 
@@ -143,5 +169,10 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             float CurosrPosY = reader.ReadSingle();
             CursorPos = new Vector2(CursorPosX, CurosrPosY);
         }
+    }
+
+    public class OneTrueFlagAutoRecallPlayer : ModPlayer
+    {
+        public bool hasAutoRecall = false;
     }
 }
