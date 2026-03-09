@@ -174,40 +174,47 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             
             if(canShoot)
             {
-                bulletTimer++;
-                if(bulletTimer >= BULLET_INTERVAL)
+                // 目标已死亡或离开范围时不再发射，避免 target 为 null 导致 NullReferenceException 使哨兵消失
+                if (target == null)
                 {
-                    bulletCnt++;
-                    bulletTimer = 0;
-                    Vector2 target_center = new Vector2(targetCenterX, targetCenterY);
-                    Vector2 ProjOffset = new Vector2(MinionAIHelper.RandomFloat(-1000f, 1000f), -1000f);
-                    Vector2 ProjSpawnPos = target_center + ProjOffset;
-                    Vector2 PredictedPos = target_center; 
-                    if(target != null)
-                        PredictedPos = MinionAIHelper.PredictTargetPosition(ProjSpawnPos, target_center, target.velocity, 50f);
-                    Vector2 direction = (PredictedPos - ProjSpawnPos).SafeNormalize(Vector2.Zero);
-
-                    if(Projectile.owner == Main.myPlayer)
+                    canShoot = false;
+                    bulletCnt = 0;
+                }
+                else
+                {
+                    bulletTimer++;
+                    if(bulletTimer >= BULLET_INTERVAL)
                     {
-                        Projectile proj = Projectile.NewProjectileDirect(
-                            Projectile.GetSource_FromAI(),
-                            ProjSpawnPos,
-                            direction * 50f,
-                            ModProjectileID.StardustSentryBullet,
-                            Projectile.damage,
-                            Projectile.knockBack,
-                            Projectile.owner,
-                            (float)(target.whoAmI)
-                        );
-                    }
+                        bulletCnt++;
+                        bulletTimer = 0;
+                        Vector2 target_center = new Vector2(targetCenterX, targetCenterY);
+                        Vector2 ProjOffset = new Vector2(MinionAIHelper.RandomFloat(-1000f, 1000f), -1000f);
+                        Vector2 ProjSpawnPos = target_center + ProjOffset;
+                        Vector2 PredictedPos = MinionAIHelper.PredictTargetPosition(ProjSpawnPos, target_center, target.velocity, 50f);
+                        Vector2 direction = (PredictedPos - ProjSpawnPos).SafeNormalize(Vector2.Zero);
 
-                    if(bulletCnt >= BULLET_NUM)
-                    {
-                        bulletCnt = 0;
-                        canShoot = false;
-                    }
+                        if(Projectile.owner == Main.myPlayer)
+                        {
+                            Projectile proj = Projectile.NewProjectileDirect(
+                                Projectile.GetSource_FromAI(),
+                                ProjSpawnPos,
+                                direction * 50f,
+                                ModProjectileID.StardustSentryBullet,
+                                Projectile.damage,
+                                Projectile.knockBack,
+                                Projectile.owner,
+                                (float)(target.whoAmI)
+                            );
+                        }
 
-                    MinionAIHelper.SetProjectileNetUpdate(Projectile);
+                        if(bulletCnt >= BULLET_NUM)
+                        {
+                            bulletCnt = 0;
+                            canShoot = false;
+                        }
+
+                        MinionAIHelper.SetProjectileNetUpdate(Projectile);
+                    }
                 }
             }
 
@@ -333,13 +340,13 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         public override void Kill(int timeLeft)
         {
-            int[] extra_decode_values = extraPacker.Decode(Projectile.ai[1]);
-            Projectile signalProj = SignalRef.Get();
-            if (signalProj != null)
-            {
-                if(signalProj.active)
-                    signalProj.Kill();
-            }
+            // int[] extra_decode_values = extraPacker.Decode(Projectile.ai[1]);
+            // Projectile signalProj = SignalRef.Get();
+            // if (signalProj != null)
+            // {
+            //     if(signalProj.active)
+            //         signalProj.Kill();
+            // }
         }
         public override bool PreDraw(ref Color lightColor)
         {
