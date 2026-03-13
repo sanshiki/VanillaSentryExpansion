@@ -38,6 +38,8 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         private bool LoggedConfigured;
         private bool LoggedUnconfigured;
         private bool LoggedTeleport;
+        /// <summary> 是否已根据 RandomWaitTime 与距离设置过 timeLeft，避免重复设置且保证多人一致 </summary>
+        private bool TeleportTimeLeftSet;
 
         private void LogDebug(string message)
         {
@@ -77,7 +79,9 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
 
         public override void OnSpawn(IEntitySource source)
         {
-            RandomWaitTime = Main.rand.Next(0, 20);
+            // 仅 owner 生成随机数，再通过 SendExtraAI/ReceiveExtraAI 同步，保证多人一致
+            if (Projectile.owner == Main.myPlayer)
+                RandomWaitTime = Main.rand.Next(0, 20);
         }
 
         public override void AI()
@@ -112,39 +116,14 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
                 int sentryHeight = sentry != null && sentry.active ? sentry.height : 32;
                 WaitTimer++;
                 float visualDist = sentry != null && sentry.active ? sentry.Center.Distance(TargetPos) : 0f;
-                if (WaitTimer >= BASE_WAIT_TIME + (int)(visualDist * DIST_FACTOR) + RandomWaitTime)
+
+                // 仅 owner 设置一次 timeLeft，保证多人用同一随机数；其他客户端通过 projectile 同步得到 timeLeft
+                if (Projectile.owner == Main.myPlayer && !TeleportTimeLeftSet)
                 {
-
-                    // create teleport dust effect
-                    for(int i = 0; i < 6; i++)
-                    {
-                        int dust_id1 = MinionAIHelper.RandomBool() ? 235 : 259;
-                        Vector2 position1 = TargetPos + new Vector2(-sentryWidth * 0.5f, -sentryHeight);
-                        Dust dust1 = Main.dust[Terraria.Dust.NewDust(position1, sentryWidth, sentryHeight, dust_id1, 0f, 0f, 0, new Color(255,255,255), 1f)];
-                        dust1.noGravity = true;
-                    }
-
-                    if (sentry != null && sentry.active)
-                    {
-                        for(int i = 0; i < 6; i++)
-                        {
-                            int dust_id2 = MinionAIHelper.RandomBool() ? 235 : 259;
-                            Vector2 position2 = sentry.Center + new Vector2(-sentry.width * 0.5f, -sentry.height);
-                            Dust dust2 = Main.dust[Terraria.Dust.NewDust(position2, sentry.width, sentry.height, dust_id2, 0f, 0f, 0, new Color(255,255,255), 1f)];
-                            dust2.noGravity = true;
-                        }
-                    }
-
-                    if (!LoggedTeleport)
-                    {
-                        LogDebug($"VisualComplete anchorWho={Projectile.whoAmI} mode={Main.netMode} target={TargetPos}");
-                        LoggedTeleport = true;
-                    }
-
-                    SoundStyle style = new SoundStyle("Terraria/Sounds/Custom/dd2_flameburst_tower_shot_2") with { Volume = .47f,  Pitch = .74f,  PitchVariance = .72f, };
-                    SoundEngine.PlaySound(style,Projectile.Center);
-
-                    Projectile.Kill();
+                    int totalWait = BASE_WAIT_TIME + (int)(visualDist * DIST_FACTOR) + RandomWaitTime;
+                    Projectile.timeLeft = totalWait;
+                    TeleportTimeLeftSet = true;
+                    Projectile.netUpdate = true;
                 }
 
                 // create dust effect
@@ -162,6 +141,44 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         
         }
 
+        public override void OnKill(int timeLeft)
+        {
+            if (!Configured)
+                return;
+            Projectile sentry = SentryRef.Get();
+            int sentryWidth = sentry != null && sentry.active ? sentry.width : 32;
+            int sentryHeight = sentry != null && sentry.active ? sentry.height : 32;
+
+            for (int i = 0; i < 6; i++)
+            {
+                int dust_id1 = MinionAIHelper.RandomBool() ? 235 : 259;
+                Vector2 position1 = TargetPos + new Vector2(-sentryWidth * 0.5f, -sentryHeight);
+                Dust dust1 = Main.dust[Terraria.Dust.NewDust(position1, sentryWidth, sentryHeight, dust_id1, 0f, 0f, 0, new Color(255, 255, 255), 1f)];
+                dust1.noGravity = true;
+            }
+
+            if (sentry != null && sentry.active)
+            {
+                for (int i = 0; i < 6; i++)
+                {
+                    int dust_id2 = MinionAIHelper.RandomBool() ? 235 : 259;
+                    Vector2 position2 = sentry.Center + new Vector2(-sentry.width * 0.5f, -sentry.height);
+                    Dust dust2 = Main.dust[Terraria.Dust.NewDust(position2, sentry.width, sentry.height, dust_id2, 0f, 0f, 0, new Color(255, 255, 255), 1f)];
+                    dust2.noGravity = true;
+                }
+            }
+
+            if (!LoggedTeleport)
+            {
+                LogDebug($"VisualComplete anchorWho={Projectile.whoAmI} mode={Main.netMode} target={TargetPos}");
+                LoggedTeleport = true;
+            }
+
+            SoundStyle style = new SoundStyle("Terraria/Sounds/Custom/dd2_flameburst_tower_shot_2") with { Volume = .47f, Pitch = .74f, PitchVariance = .72f };
+            SoundEngine.PlaySound(style, Projectile.Center);
+
+        }
+
         public override bool MinionContactDamage()
 		{
 			return false;
@@ -174,6 +191,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             writer.Write(TargetPos.Y);
             writer.Write(OriginalTileCollide);
             writer.Write(Configured);
+            writer.Write((short)RandomWaitTime);
         }
 
         public override void ReceiveExtraAI(BinaryReader reader)
@@ -184,6 +202,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
             TargetPos = new Vector2(targetPosX, targetPosY);
             OriginalTileCollide = reader.ReadBoolean();
             Configured = reader.ReadBoolean();
+            RandomWaitTime = reader.ReadInt16();
             LogDebug(
                 $"ReceiveExtraAI anchorWho={Projectile.whoAmI} owner={Projectile.owner} mode={Main.netMode} " +
                 $"configured={Configured} sentryIdentity={SentryRef.Identity} sentryWho={SentryRef.WhoAmI} target={TargetPos} tile={OriginalTileCollide}");
