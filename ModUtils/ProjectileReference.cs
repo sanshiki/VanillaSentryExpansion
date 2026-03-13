@@ -7,11 +7,13 @@ namespace SummonerExpansionMod.ModUtils
     {
         public int Identity;
         public int WhoAmI;
+        public int Owner;
 
         public void Clear()
         {
             Identity = -1;
             WhoAmI = -1;
+            Owner = -1;
         }
 
         public ProjectileReference(Projectile projectile)
@@ -23,6 +25,7 @@ namespace SummonerExpansionMod.ModUtils
         {
             Identity = projectile.identity;
             WhoAmI = projectile.whoAmI;
+            Owner = projectile.owner;
         }
 
         public bool IsValid()
@@ -37,7 +40,7 @@ namespace SummonerExpansionMod.ModUtils
             {
                 Projectile cached = Main.projectile[WhoAmI];
 
-                if (cached.active && cached.identity == Identity)
+                if (cached.active && cached.identity == Identity && cached.owner == Owner)
                 {
                     // Main.NewText("Projectile cached hit: "+Identity+" "+WhoAmI+" "+cached.type);
                     return cached;
@@ -49,7 +52,7 @@ namespace SummonerExpansionMod.ModUtils
             {
                 Projectile proj = Main.projectile[i];
 
-                if (proj.active && proj.identity == Identity)
+                if (proj.active && proj.identity == Identity && proj.owner == Owner)
                 {
                     WhoAmI = i; // 更新缓存
                     // Main.NewText("Projectile fallback hit: "+Identity+" "+WhoAmI+" "+proj.type);
@@ -65,12 +68,14 @@ namespace SummonerExpansionMod.ModUtils
         {
             writer.Write(Identity);
             writer.Write(WhoAmI);
+            writer.Write(Owner);
         }
 
         public void ReceiveExtraAI(BinaryReader reader)
         {
             Identity = reader.ReadInt32();
             WhoAmI = reader.ReadInt32();
+            Owner = reader.ReadInt32();
         }
     }
 }
