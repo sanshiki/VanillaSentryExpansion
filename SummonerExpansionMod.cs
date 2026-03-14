@@ -23,10 +23,10 @@ namespace SummonerExpansionMod
 	// Please read https://github.com/tModLoader/tModLoader/wiki/Basic-tModLoader-Modding-Guide#mod-skeleton-contents for more information about the various files in a mod.
 	public class SummonerExpansionMod : Mod
 	{
-		internal static ModKeybind ToggleDynamicParamManagerUI;
+		// internal static ModKeybind ToggleDynamicParamManagerUI;
 		public override void Load()
 		{
-			ToggleDynamicParamManagerUI = KeybindLoader.RegisterKeybind(this, "Toggle Dynamic Param Manager UI", "P");
+			// ToggleDynamicParamManagerUI = KeybindLoader.RegisterKeybind(this, "Toggle Dynamic Param Manager UI", "P");
 			ModIDLoader.Load();
 			// if (Main.netMode != NetmodeID.Server)
 			// {

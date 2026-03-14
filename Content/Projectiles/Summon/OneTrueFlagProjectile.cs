@@ -52,6 +52,7 @@ namespace SummonerExpansionMod.Content.Projectiles.Summon
         protected override float SENTRY_RECALL_MAX_DIST => 4200f;
         protected override int SENTRY_RECALL_ANCHOR_PROJECTILE_TYPE => ModProjectileID.OneTrueFlagAnchor;
         protected override int ONGROUND_CNT_THRESHOLD => 10;
+        protected override float RECALL_ROTATE_SPEED => 0.4f;
         protected bool BladShotInited = false;
         protected bool SoundPlayed = false;
         protected Vector2 CursorPos;

@@ -1,1 +1,20 @@
-Modify this file with a description of your mod.
+原版哨兵拓展 是一款 Terraria tModLoader 模组，围绕哨兵召唤师玩法扩展：更多哨兵、令旗武器、原版哨兵改动以及配件与盔甲等。
+VanillaSentryExpansion is a Terraria tModLoader mod that expands sentry-summoner gameplay: more sentries, flag weapons, vanilla sentry changes, and accessories and armor.
+
+更多哨兵：新增多种哨兵法杖与对应哨兵，完善了哨兵召唤师的全游戏流程体验。
+More Sentries: Adds a variety of sentry staffs and their sentries, improving the full-game experience for sentry summoners.
+
+令旗武器：添加了对标原版鞭子的召唤师主手武器令旗；左键挥击标记敌人，右键蓄力或插旗召回哨兵。
+Flag Weapons: Adds a summoner main-hand weapon on par with whips—the flag. Left-click to swing and mark enemies; right-click to charge or plant the flag to recall sentries.
+
+原版哨兵改动：对原版哨兵进行不同程度的增强，在保留原版风格的前提下调整数值或行为。
+Vanilla Sentry Overrides: Enhances vanilla sentries to varying degrees, adjusting stats or behavior while keeping the original style.
+
+新增物品与盔甲：哨兵召唤师的新饰品以及工具；后期部分盔甲针对哨兵召唤师分支的优化。
+Items & Armor: Accessories and useful tools for sentry-summoner, and more; late-game armor optimizations for the sentry-summoner branch.
+
+其它：召唤疲劳（多哨兵/仆从时伤害削减防超模）、多语言（中/英）适配。
+Other: Summon fatigue (damage reduction when summoning many sentries/minions), localization (zh-Hans / en-US).
+
+注：本模组已对多人模式进行初步适配，目前建议单人模式下游玩。
+Note: This mod has initial multiplayer support; single-player is currently recommended.

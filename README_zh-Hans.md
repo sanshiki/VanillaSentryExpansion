@@ -1,8 +1,6 @@
-# VanillaSentryExpansion
+# VanillaSentryExpansion — 中文介绍
 
 **VanillaSentryExpansion** 是一款 Terraria tModLoader 模组，围绕哨兵召唤师玩法扩展：更多哨兵、令旗武器、原版哨兵改动以及配件与盔甲等。
-
-[**English introduction →**](README_en.md)
 
 ---
 

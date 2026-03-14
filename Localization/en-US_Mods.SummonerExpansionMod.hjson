@@ -1,44 +1,4 @@
 Buffs: {
-	ExampleSimpleMinionBuff: {
-		DisplayName: Example Simple Minion Buff
-		Description: Mods.SummonerExpansionMod.Buffs.ExampleSimpleMinionBuff.Description
-	}
-
-	BabySlimeOverrideBuff: {
-		DisplayName: Baby Slime Override Buff
-		Description: Mods.SummonerExpansionMod.Buffs.BabySlimeOverrideBuff.Description
-	}
-
-	SentryPlatformBuff: {
-		DisplayName: Sentry Platform Buff
-		Description: Mods.SummonerExpansionMod.Buffs.SentryPlatformBuff.Description
-	}
-
-	SentryEnhancementBuff: {
-		DisplayName: Sentry Enhancement Buff
-		Description: Mods.SummonerExpansionMod.Buffs.SentryEnhancementBuff.Description
-	}
-
-	SentryRecallBuff: {
-		DisplayName: Sentry Recall Buff
-		Description: Mods.SummonerExpansionMod.Buffs.SentryRecallBuff.Description
-	}
-
-	SentryTargetBuff: {
-		DisplayName: Sentry Target Buff
-		Description: Mods.SummonerExpansionMod.Buffs.SentryTargetBuff.Description
-	}
-
-	ElectricShock: {
-		DisplayName: Electric Shock
-		Description: Mods.SummonerExpansionMod.Buffs.ElectricShock.Description
-	}
-
-	ElectricBoostBuff: {
-		DisplayName: Electric Boost Buff
-		Description: Mods.SummonerExpansionMod.Buffs.ElectricBoostBuff.Description
-	}
-
 	GoblinFlagBuff: {
 		DisplayName: Horde Banner
 		Description: +7.5% summon damage
@@ -108,6 +68,11 @@ Buffs: {
 		DisplayName: Summon Fatigue
 		Description: Mods.SummonerExpansionMod.Buffs.SummonFatigueDebuff.Description
 	}
+
+	ElectricShock: {
+		Description: Mods.SummonerExpansionMod.Buffs.ElectricShock.Description
+		DisplayName: Electric Shock
+	}
 }
 
 Items: {
@@ -150,7 +115,6 @@ Items: {
 			'''
 			Summons an auto rocket sentry
 			Fires high-damage homing rockets
-			"Tell it to my four green combat readiness"
 			'''
 	}
 
@@ -238,7 +202,6 @@ Items: {
 			'''
 			Summons an auto rocket sentry
 			Fires high-damage homing rockets
-			"Tell it to my four green combat readiness"
 			'''
 	}
 
@@ -270,7 +233,7 @@ Items: {
 
 	SuperEarthCloak: {
 		DisplayName: Super Earth Cloak
-		Tooltip: Reduces damage from certain blind weapons... maybe
+		Tooltip: Reduces damage from some blind sentries... maybe
 	}
 
 	VertexTest: {
@@ -513,7 +476,7 @@ Items: {
 			6 defense
 			+1 max sentry
 			+10% summon damage
-			Greatly reduces damage from certain wayward weapons... maybe
+			Greatly reduces damage from some blind sentries... maybe
 			Increases invincibility frame duration when hit
 			"When the Illuminate threaten Super Earth, heart of democracy, Helldivers answer the call"
 			'''
@@ -524,7 +487,7 @@ Items: {
 		Tooltip:
 			'''
 			4 defense
-			Reduces damage from certain wayward weapons... maybe
+			Reduces damage from some blind sentries... maybe
 			"Durable, waterproof, with insulated lining!"
 			'''
 		DisplayName: Enemy Eradicator Cloak
@@ -614,7 +577,7 @@ Projectiles: {
 
 NPCs: {
 	CursorTargetDummy.DisplayName: Cursor Target Dummy
-	CursedMagicTowerBulletNPC.DisplayName: Cursed Magic Tower Bullet N P C
+	CursedMagicTowerBulletNPC.DisplayName: Cursed Magic Skull
 }
 
 "Keybinds.Toggle Dynamic Param Manager UI.DisplayName": Toggle  Dynamic  Param  Manager  U I

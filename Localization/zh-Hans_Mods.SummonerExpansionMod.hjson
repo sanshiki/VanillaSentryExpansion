@@ -1,44 +1,4 @@
 Buffs: {
-	ExampleSimpleMinionBuff: {
-		DisplayName: Example Simple Minion Buff
-		Description: Mods.SummonerExpansionMod.Buffs.ExampleSimpleMinionBuff.Description
-	}
-
-	BabySlimeOverrideBuff: {
-		DisplayName: Baby Slime Override Buff
-		Description: Mods.SummonerExpansionMod.Buffs.BabySlimeOverrideBuff.Description
-	}
-
-	SentryPlatformBuff: {
-		DisplayName: Sentry Platform Buff
-		Description: Mods.SummonerExpansionMod.Buffs.SentryPlatformBuff.Description
-	}
-
-	SentryEnhancementBuff: {
-		DisplayName: Sentry Enhancement Buff
-		Description: Mods.SummonerExpansionMod.Buffs.SentryEnhancementBuff.Description
-	}
-
-	SentryRecallBuff: {
-		DisplayName: Sentry Recall Buff
-		Description: Mods.SummonerExpansionMod.Buffs.SentryRecallBuff.Description
-	}
-
-	SentryTargetBuff: {
-		DisplayName: Sentry Target Buff
-		Description: Mods.SummonerExpansionMod.Buffs.SentryTargetBuff.Description
-	}
-
-	ElectricShock: {
-		DisplayName: Electric Shock
-		Description: Mods.SummonerExpansionMod.Buffs.ElectricShock.Description
-	}
-
-	ElectricBoostBuff: {
-		DisplayName: Electric Boost Buff
-		Description: Mods.SummonerExpansionMod.Buffs.ElectricBoostBuff.Description
-	}
-
 	GoblinFlagBuff: {
 		DisplayName: 部落战旗
 		Description: 召唤伤害增加7.5%
@@ -111,6 +71,11 @@ Buffs: {
 	SummonFatigueDebuff: {
 		DisplayName: 召唤疲惫
 		// Description: Mods.SummonerExpansionMod.Buffs.SummonFatigueDebuff.Description
+	}
+
+	ElectricShock: {
+		// Description: Mods.SummonerExpansionMod.Buffs.ElectricShock.Description
+		// DisplayName: Electric Shock
 	}
 }
 
@@ -627,7 +592,7 @@ Projectiles: {
 
 NPCs: {
 	CursorTargetDummy.DisplayName: Cursor Target Dummy
-	CursedMagicTowerBulletNPC.DisplayName: Cursed Magic Tower Bullet N P C
+	CursedMagicTowerBulletNPC.DisplayName: 魔法诅咒骷髅头
 }
 
 "Keybinds.Toggle Dynamic Param Manager UI.DisplayName": Toggle  Dynamic  Param  Manager  U I

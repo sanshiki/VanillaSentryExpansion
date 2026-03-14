@@ -59,7 +59,7 @@ namespace SummonerExpansionMod.Initialization
 			ModProjectileID.MothronQueenTurretBullet = ModContent.ProjectileType<MothronQueenTurretBullet>();
 			ModProjectileID.MothronBabyFriendly = ModContent.ProjectileType<MothronBabyFriendly>();
 			// minion
-			ModProjectileID.SentryPlatform = ModContent.ProjectileType<SentryPlatform>();
+			// ModProjectileID.SentryPlatform = ModContent.ProjectileType<SentryPlatform>();
 
 			// flag weapon
 			ModProjectileID.FlagProjectile = ModContent.ProjectileType<FlagProjectile>();
@@ -81,9 +81,6 @@ namespace SummonerExpansionMod.Initialization
 			ModProjectileID.HellFlagAnchor = ModContent.ProjectileType<HellFlagAnchor>();
 			ModProjectileID.GiantLeavesOfPlanteraAnchor = ModContent.ProjectileType<GiantLeavesOfPlanteraAnchor>();
 			/* ------------------------------- buffs ------------------------------- */
-			ModBuffID.SentryEnhancement = ModContent.BuffType<SentryEnhancementBuff>();
-			ModBuffID.SentryTarget = ModContent.BuffType<SentryTargetBuff>();
-			ModBuffID.ElectricShock = ModContent.BuffType<ElectricShock>();
 			ModBuffID.MothronDustDebuff = ModContent.BuffType<MothronDustDebuff>();
 			ModBuffID.NormalFlagBuff = ModContent.BuffType<NormalFlagBuff>();
 			ModBuffID.GoblinFlagBuff = ModContent.BuffType<GoblinFlagBuff>();
